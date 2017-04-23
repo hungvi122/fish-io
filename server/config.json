@@ -1,0 +1,65 @@
+{
+    "port": 3334,
+    "foodMass": 1,
+    "food" :{
+        "maxFood": 30,
+        "level": [
+            {"foodMass": 1,"radius": 25,"column": 6,"row": 1, "speed": 2},
+            {"foodMass": 2,"radius": 40,"column": 1,"row": 1, "speed": 2.5},
+            {"foodMass": 3,"radius": 40,"column": 1,"row": 1, "speed": 3},
+            {"foodMass": 4,"radius": 40,"column": 1,"row": 1, "speed": 4}
+        ]
+    },
+    "fireFood": 20,
+    "limitSplit": 16,
+    "defaultPlayerMass": 10,
+    "virus": {
+        "radius": 40,
+        "maxVirus": 6,
+        "status": {
+            "LIVE": 0,
+            "DIED": 1
+        }
+    },
+    "airBubble": {
+        "maxAirBubble": 25,
+        "typeMax": 4
+    },
+    "gameWidth": 5000,
+    "gameHeight": 5000,
+    "adminPass": "DEFAULT",
+    "gameMass": 10000,
+    "slowBase": 4.5,
+    "logChat": 0,
+    "networkUpdateFactor": 40,
+    "maxHeartbeatInterval": 5000,
+    "foodUniformDisposition": true,
+    "virusUniformDisposition": false,
+    "newPlayerInitialPosition": "farthest",
+    "fishType":[
+        {"maxMass": 20, "radius": 40, "width": 128, "height": 95 , "column": 1, "row": 1}, 
+        {"maxMass": 30, "radius": 60, "width": 128, "height": 124, "column": 1, "row": 1},
+        {"maxMass": 40, "radius": 100,"width": 92,  "height": 116, "column": 1, "row": 1}, 
+        {"maxMass": 50, "radius": 100,"width": 142, "height": 119, "column": 1, "row": 1},
+        {"maxMass": 60, "radius": 80, "width": 166, "height": 135, "column": 1, "row": 1},
+        {"maxMass": 70, "radius": 80, "width": 154, "height": 127, "column": 1, "row": 1},
+        {"maxMass": 80, "radius": 80, "width": 168, "height": 127, "column": 1, "row": 1},
+        {"maxMass": 90, "radius": 80, "width": 154, "height": 127, "column": 1, "row": 1}
+    ],
+    "direct": {
+        "LEFT": 1,
+        "RIGHT": 2
+    },
+    "maxMinFood": 50,
+    "radiusAbsorb": 300,
+    "speedAnimation": 5,
+    "timeAcceleration": 3000,
+    "timeSpeed": 3000,
+    "speedPlayer": 6.5,
+    "typeObj": {
+        "FOOD" : 0,
+        "MASS" : 1,
+        "VIRUS": 2,
+        "AIR": 3
+    }
+}
