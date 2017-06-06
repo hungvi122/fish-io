@@ -105,6 +105,7 @@ window.canvas = new Canvas();
     socket.on('gameSetup', function(data) {
         global.gameWidth = data.gameWidth;
         global.gameHeight = data.gameHeight;
+        console.log("serverPORT: ",data.serverPort);
         resize(socket);
     });
 
