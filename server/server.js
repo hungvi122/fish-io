@@ -413,7 +413,7 @@ io.on('connection', function (socket) {
             var temp1 = {
                 gameWidth: c.gameWidth,
                 gameHeight: c.gameHeight,
-                port: serverPort
+                serverPort: serverPort
             }
             socket.emit('gameSetup', temp1);
             console.log('Total players: ' + users.length);
