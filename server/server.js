@@ -10,7 +10,7 @@ var C = SAT.Circle;
 var quadtree = require('simple-quadtree');
 var tree = quadtree(0, 0, c.gameWidth, c.gameHeight);
 app.use(express.static(__dirname + '/../client'));
-
+var serverPort = process.env.PORT || c.port;
 var users = [];
 var massFood = [];
 var minFood = [];
@@ -409,7 +409,7 @@ io.on('connection', function (socket) {
             users.push(currentPlayer);
             console.log("USER: ", users);
 
-            io.emit('playerJoin', { name: currentPlayer.name });
+            io.emit('playerJoin', { name: currentPlayer.name, port: serverPort });
             var temp1 = {
                 gameWidth: c.gameWidth,
                 gameHeight: c.gameHeight
@@ -884,7 +884,6 @@ setInterval(gameloop, 1000);
 setInterval(sendUpdates, 1000 / c.networkUpdateFactor);
 
 
-var serverPort = process.env.PORT || c.port;
 http.listen(serverPort, function() {
   console.log("Server is listening on port " + serverPort);
 });
