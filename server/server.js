@@ -409,10 +409,11 @@ io.on('connection', function (socket) {
             users.push(currentPlayer);
             console.log("USER: ", users);
 
-            io.emit('playerJoin', { name: currentPlayer.name, port: serverPort });
+            io.emit('playerJoin', { name: currentPlayer.name });
             var temp1 = {
                 gameWidth: c.gameWidth,
-                gameHeight: c.gameHeight
+                gameHeight: c.gameHeight,
+                port: serverPort
             }
             socket.emit('gameSetup', temp1);
             console.log('Total players: ' + users.length);
