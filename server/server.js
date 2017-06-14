@@ -10,7 +10,7 @@ var C = SAT.Circle;
 var quadtree = require('simple-quadtree');
 var tree = quadtree(0, 0, c.gameWidth, c.gameHeight);
 app.use(express.static(__dirname + '/../client'));
-var serverPort = process.env.PORT || c.port;
+var serverPort = 3000;//process.env.PORT || c.port;
 var users = [];
 var massFood = [];
 var minFood = [];
