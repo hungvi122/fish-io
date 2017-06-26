@@ -7,11 +7,11 @@ class Canvas {
         this.directions = [];
         var self = this;
 
-        this.cv = document.body; //document.getElementById('cvs');
+        this.cv = document.getElementById('shadowCanvas');
         this.cv.width = global.screenWidth;
         this.cv.height = global.screenHeight;
         this.cv.addEventListener('mousemove', this.gameInput, false);
-        this.cv.addEventListener('mouseout', this.outOfBounds, false);
+        // this.cv.addEventListener('mouseout', this.outOfBounds, false);
         this.cv.addEventListener('mousedown', this.mouseDown, false);
         this.cv.addEventListener('keypress', this.keyInput, false);
         this.cv.addEventListener('keyup', function(event) {
@@ -33,9 +33,11 @@ class Canvas {
     		self.directionLock = true;
     		if (self.newDirection(key, self.directions, true)) {
     			self.updateTarget(self.directions);
+                // console.log("directionDOWN", self.target);
     			self.socket.emit('0', self.target);
     		}
     	}
+        
     }
 
     // Function called when a key is lifted, will change direction if arrow key.
@@ -45,6 +47,7 @@ class Canvas {
     		if (this.newDirection(key, this.directions, false)) {
     			this.updateTarget(this.directions);
     			if (this.directions.length === 0) this.directionLock = false;
+                // console.log("directionUP", this.target);
     			this.socket.emit('0', this.target);
     		}
     	}
@@ -91,6 +94,7 @@ class Canvas {
     	}
     	this.target.x += directionHorizontal;
     	this.target.y += directionVertical;
+        // console.log("updateTarget", this.target);
         global.target = this.target;
     }
 
@@ -109,12 +113,14 @@ class Canvas {
     // Register when the mouse goes off the canvas.
     outOfBounds() {
         if (!global.continuity) {
+            // console.log("outofBOUNS");
             this.parent.target = { x : 0, y: 0 };
             global.target = this.parent.target;
         }
     }
 
     mouseDown(mouse) {
+        // console.log(mouse.clientX, mouse.clientY);
         if(mouse.which == 3){ //right mouse
             self.socket.emit('mouseRight');
         }
@@ -124,10 +130,12 @@ class Canvas {
     }
 
     gameInput(mouse) {
+        // console.log(mouse.clientX, mouse.clientY);
     	if (!this.directionLock) {
     		this.parent.target.x = mouse.clientX - this.width / 2;
     		this.parent.target.y = mouse.clientY - this.height / 2;
             global.target = this.parent.target;
+            // console.log(global.target);
     	}
     }
 
@@ -145,12 +153,11 @@ class Canvas {
     keyInput(event) {
     	var key = event.which || event.keyCode;
     	if (key === global.KEY_FIREFOOD && this.parent.reenviar) {
-            this.parent.socket.emit('1');
+            self.socket.emit('1');
             this.parent.reenviar = false;
         }
         else if (key === global.KEY_SPLIT && this.parent.reenviar) {
-            document.getElementById('split_cell').play();
-            this.parent.socket.emit('2');
+            self.socket.emit('addBoom');
             this.parent.reenviar = false;
         }
         else if (key === global.KEY_CHAT) {
@@ -159,4 +166,3 @@ class Canvas {
     }
 }
 
-// module.exports = Canvas;

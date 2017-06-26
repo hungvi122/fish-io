@@ -16,10 +16,20 @@ var global = {
     foodSides: 10,
     virusSides: 20,
     food: [
-       {"width": 50, "height": 30, "column": 6, "row": 1, "begin": 0, "right": 0, "left": 1},
+       {"width": 73, "height": 46, "column": 6, "row": 1, "begin": 0, "right": 0, "left": 1},
        {"width": 80, "height": 70, "column": 1, "row": 1, "begin": 0, "right": 0, "left": 1},
        {"width": 60, "height": 50, "column": 1, "row": 1, "begin": 0, "right": 0, "left": 1},
        {"width": 60, "height": 48, "column": 1, "row": 1, "begin": 0, "right": 0, "left": 1}
+    ],
+    jellyFish: [
+        {"width": 94, "height": 138, "column": 3, "row": 1, "begin": 0, "right": 0, "left": 1},
+        {"width": 94, "height": 138, "column": 3, "row": 1, "begin": 0, "right": 1, "left": 1}
+    ],
+    enemy: [
+        {"width": 272, "height": 107, "column": 3, "row": 1, "begin": 0, "right": 0, "left": 1}
+    ],
+    boom: [
+        {"width": 85, "height": 86, "column": 10, "row": 1, "begin": 0, "right": 0, "left": 1}
     ],
     // Canvas
     screenWidth: window.innerWidth,
@@ -37,15 +47,17 @@ var global = {
     toggleMassState: 0,
     backgroundColor: '#f2fbff',
     lineColor: '#000000',
+    red: '#007703',
+    yellow: '#fffd34',
     fishType:[
-        {"mass": 20, "width": 128, "height": 95, "column": 1, "row": 1},    
-        {"mass": 30, "width": 128, "height": 124, "column": 1, "row": 1}, 
-        {"mass": 40, "width": 92,  "height": 116, "column": 1, "row": 1}, 
-        {"mass": 50, "width": 142, "height": 119, "column": 1, "row": 1}, 
-        {"mass": 60, "width": 166, "height": 135, "column": 1, "row": 1},    
-        {"mass": 70, "width": 154, "height": 127, "column": 1, "row": 1}, 
-        {"mass": 80, "width": 168, "height": 127, "column": 1, "row": 1}, 
-        {"mass": 90, "width": 154, "height": 127, "column": 1, "row": 1}
+        {"mass": 20, "width": 128, "height": 94, "column": 1, "row": 1},    
+        {"mass": 30, "width": 128, "height": 121, "column":1, "row": 1}, 
+        {"mass": 40, "width": 92,  "height": 116, "column":1, "row": 1}, 
+        {"mass": 50, "width": 142, "height": 119, "column":1, "row": 1}, 
+        {"mass": 60, "width": 166, "height": 134, "column":1, "row": 1},    
+        {"mass": 70, "width": 154, "height": 126, "column":1, "row": 1}, 
+        {"mass": 80, "width": 168, "height": 126, "column":1, "row": 1}, 
+        {"mass": 90, "width": 154, "height": 125, "column":1, "row": 1}
      ],
      direct: {
         "LEFT": 1,
@@ -55,11 +67,19 @@ var global = {
     colorBlur: "#66ADFF",
     radarWidth: 150,
     radarHeight:150,
-    radiusRadar: 4,
+    radiusRadar: 2,
     colorUserRadar: "#66ADFF",
-    colorPlayerRadar: "#FF482E",
+    colorPlayerRadar: "#FFFFFF",
     status: {
         "LIVE": 0,
         "DIED": 1
+    },
+    imageShock: {
+        x: 163,
+        y: 80
+    },
+    levelUp:{
+        x: -30,
+        y: 60,
     }
 };

@@ -38,6 +38,8 @@ exports.log = (function () {
 // get the Euclidean distance between the edges of two shapes
 exports.getDistance = function (p1, p2) {
     try{
+        if(p2 == undefined)
+            return Infinity;
         return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));    
     }catch(err){
         console.log('Error');
@@ -45,6 +47,24 @@ exports.getDistance = function (p1, p2) {
         console.log(p1,p2);
     }
     
+};
+
+exports.getMinPoint = function (p1, lstPoint) {
+    var distance = 999;
+    var index = -1;
+    for (var i = 0; i < lstPoint.length; i++) {
+        var distanceTemp = exports.getDistance(p1, lstPoint[i]);
+        if(distance > distanceTemp){
+            index = i;
+            distance = distanceTemp;
+        }
+    }
+    if(index == -1)
+        return undefined;
+    return {
+        x:lstPoint[index].x,
+        y:lstPoint[index].y
+    };
 };
 
 exports.randomInRange = function (from, to) {
@@ -58,7 +78,21 @@ exports.randomPosition = function (radius) {
         y: exports.randomInRange(radius, cfg.gameHeight - radius)
     };
 };
-
+exports.randomLevelFood = function(size){
+    var rand = Math.random();
+    for (var j = 0; j < size; j++) {
+        if(size < 0.5){
+            return 0;
+            break;
+        }else if(size < 0.7){
+            return 1;
+            break;
+        }else if(rand < 0.7 + (j - 1) * 0.3/ (size - 2)){
+            return j;
+            break;
+        }
+    }
+};
 exports.uniformPosition = function(points, radius) {
     var bestCandidate, maxDistance = 0;
     var numberOfCandidates = 10;

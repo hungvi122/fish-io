@@ -2,27 +2,316 @@ var express = require('express');
 var app     = express();
 var http    = require('http').Server(app);
 var io      = require('socket.io')(http);
-var util 	= require('./util.js');
+var fishNames = require('fish-names');
+var util    = require('./util.js');
 var c  = require('./config.json');
+var Boid = require('./Boid.js');
 var SAT = require('sat');
 var V = SAT.Vector;
 var C = SAT.Circle;
-var quadtree = require('simple-quadtree');
-var tree = quadtree(0, 0, c.gameWidth, c.gameHeight);
+var port = process.env.PORT || c.port;
 app.use(express.static(__dirname + '/../client'));
-var serverPort = 3000;//process.env.PORT || c.port;
+
 var users = [];
 var massFood = [];
-var minFood = [];
+var light = [];
+var enemies = [];
 var airBubbles = [];
 var booms = [];
+var jellyFishs = [];
 var virus = [];
 var food = [];
+var boids = [];
 var sockets = {};
+var bots = [];
 var leaderboard = [];
 var leaderboardChanged = false;
 
 var initMassLog = util.log(c.defaultPlayerMass, c.slowBase);
+
+function addAIBot(toAdd){
+
+    var radius = c.fishType["0"].radius;
+    var massTotal = 0;
+   while (toAdd--){
+    var position = {
+        x : util.randomInRange(0, c.gameWidth),
+        y : util.randomInRange(0, c.gameHeight),
+    };
+    bots.push({
+        id: ((new Date()).getTime() + '' + bots.length) >>> 0,
+        deg: 0,
+        name: fishNames.random(),
+        x: position.x,
+        y: position.y,
+        numberBoom: {
+            number: 0,
+            status: true,
+            time: 0
+        },
+        radius: radius,
+        speed: c.speedPlayer,
+        speedAnimation: 0,
+        frameAnimation: 0,
+        width: c.fishType["0"].width,
+        height: c.fishType["0"].height,
+        column: c.fishType["0"].column,
+        row: c.fishType["0"].row,
+        massTotal: massTotal,
+        hue: Math.round(Math.random() * 360),
+        type: c.typeObj.AIBOT,
+        lastHeartbeat: new Date().getTime(),
+        target: {
+            x: 0,
+            y: 0
+        },
+        isHut: false,
+        direction: c.direct.LEFT,
+        timeAcceleration: {status: true, timeClick: 0},
+        timeSpeed: {status: true, timeClick: 0},
+        jellyCollision: {
+                status: false,
+                time: 0
+        },
+        levelUp: {
+            status: true,
+            time: new Date().getTime(),
+            level: 0,
+            targetMass: c.fishType[0].maxMass,
+            minMass : 0
+        },
+        strategy:{
+            status: c.BOT.SAVE,
+            bot: {
+                lstSave: [],
+                lstWarn: [],
+                lstDanger:[],
+                lstAttack:[]
+            },
+            user: {
+                lstSave: [],
+                lstWarn: [],
+                lstDanger:[],
+                lstAttack:[]
+            }
+        },
+        living: {
+            status: true,
+            time: 0
+        },
+        kill: 0,
+        light: {
+            radius: 0
+        },
+        eatting: {
+            status: false,
+            time: 0
+        }
+    });
+   } 
+}
+function findEnemyToEat(bot){
+    bot.strategy.bot.lstDanger = [];
+    bot.strategy.bot.lstWarn = [];
+    bot.strategy.bot.lstSave = [];
+    bot.strategy.bot.lstAttack = [];
+    bot.strategy.user.lstAttack = [];
+    bot.strategy.user.lstDanger = [];
+    bot.strategy.user.lstWarn = [];
+    bot.strategy.user.lstSave = [];
+    var ereaDanger = new SAT.Circle(new SAT.Vector(bot.x, bot.y), 200);
+    var ereaWarn = new SAT.Circle(new SAT.Vector(bot.x, bot.y), 400);
+
+    var point ;
+    for (var i = 0; i < users.length; i++) {
+        if(users[i].living.status == false)
+            continue;
+        point = new SAT.Vector(users[i].x, users[i].y);
+        if(SAT.pointInCircle(point, ereaDanger)){
+            if(bot.levelUp.level < users[i].levelUp.level)
+                bot.strategy.user.lstDanger.push(users[i].id);
+            else if(bot.levelUp.level > users[i].levelUp.level)
+                bot.strategy.user.lstAttack.push(users[i].id);
+        }
+
+        if(SAT.pointInCircle(point, ereaWarn)){
+            if(bot.levelUp.level <= users[i].levelUp.level)
+                bot.strategy.user.lstWarn.push(users[i].id);
+            else if(bot.levelUp.level > users[i].levelUp.level)
+                bot.strategy.user.lstSave.push(users[i].id);
+        }
+    }
+
+    for (var i = 0; i < bots.length; i++) {
+        if(bot.id == bots[i].id || bots[i].living.status == false)
+            continue;
+        point = new SAT.Vector(bots[i].x, bots[i].y);
+        if(SAT.pointInCircle(point, ereaDanger)){
+            if(bot.levelUp.level < bots[i].levelUp.level)
+                bot.strategy.bot.lstDanger.push(bots[i].id);
+            else if(bot.levelUp.level > bots[i].levelUp.level)
+                bot.strategy.bot.lstAttack.push(bots[i].id);
+        }
+
+        if(SAT.pointInCircle(point, ereaWarn)){
+            if(bot.levelUp.level <= bots[i].levelUp.level)
+                bot.strategy.bot.lstWarn.push(bots[i].id);
+            else if(bot.levelUp.level > bots[i].levelUp.level)
+                bot.strategy.bot.lstSave.push(bots[i].id);
+        }
+    }
+
+    if(bot.strategy.bot.lstDanger.length  + bot.strategy.user.lstDanger.length > 0){
+        bot.strategy.status = c.BOT.DANGER;
+    }else if(bot.strategy.bot.lstAttack.length  + bot.strategy.user.lstAttack.length > 0){
+        bot.strategy.status = c.BOT.ATTACK;
+    }else if(bot.strategy.bot.lstWarn.length  + bot.strategy.user.lstWarn.length > 0){
+        bot.strategy.status = c.BOT.WARN;
+    }else
+        bot.strategy.status = c.BOT.SAVE;
+}
+
+function FindBestDirection(pos, lsEnemy){    
+    var lstDeg = [];
+    for (var i = 0; i < lsEnemy.length; i++) {
+        var degTemp = Math.atan2(lsEnemy[i].y - pos.y, lsEnemy[i].x - pos.x);
+        lstDeg.push(degTemp);
+    }
+    if(pos.x < 50){
+        lstDeg.push(Math.PI);
+    }
+    if(pos.y < 50){
+        lstDeg.push(Math.PI/2);
+    }
+    if(pos.x > c.gameWidth - 50){
+        lstDeg.push(0);
+    }
+    if(pos.y > c.gameHeight - 50){
+        lstDeg.push(-Math.PI/2);
+    }
+    
+    lstDeg.sort( function(a, b) { return a - b; });
+    var degMax = Math.PI * 2 + lstDeg[0] - lstDeg[lstDeg.length -1];
+    var index = 0;
+
+    for (var i = 1; i < lstDeg.length; i++) {
+        var subDeg = lstDeg[i] - lstDeg[i-1];
+        if(degMax < subDeg){
+            degMax = subDeg;
+            index = i;
+        }
+    }
+    var deg = lstDeg[(index -1 + lstDeg.length) %lstDeg.length] + degMax/2;
+    return deg;
+}
+function GetLst(bot, name){
+    var lstEnemy = [];
+    for (var i = 0; i < bot.strategy.user[name].length; i++) {
+        var index = util.findIndex(users, bot.strategy.user[name][i]);
+        if( index != -1){
+            lstEnemy.push({
+                x: users[index].x,
+                y: users[index].y
+            });
+        }
+    }
+
+    for (var i = 0; i < bot.strategy.bot[name].length; i++) {
+        if(bot.strategy.bot[name].id == bot.id)
+            continue;
+        var index = util.findIndex(bots, bot.strategy.bot[name][i]);
+        if( index != -1){
+            lstEnemy.push({
+                x: bots[index].x,
+                y: bots[index].y
+            });
+        }
+    }
+    return lstEnemy;
+}
+function FindDirectionForBot(bot){
+    if(bot.strategy.status == c.BOT.DANGER){
+        var lstEnemy = GetLst(bot, "lstDanger");
+        // console.log("lstDanger");
+        bot.deg = FindBestDirection(bot, lstEnemy);
+        bot.direction = (Math.abs(bot.deg) > Math.PI/2)? c.direct.LEFT: c.direct.RIGHT;
+        mouseLeft(bot);
+        if(bot.numberBoom.number > 0){
+            console.log("BOOM");
+            addBoom(bot);
+        }
+    }else if(bot.strategy.status == c.BOT.ATTACK){
+        //chay
+        var lstAttack = GetLst(bot, "lstAttack");
+         point = util.getMinPoint(bot, lstAttack);
+        // console.log("lstAttack",lstAttack);
+        bot.deg = Math.atan2(point.y - bot.y, point.x - bot.x);
+        bot.direction = (Math.abs(bot.deg) > Math.PI/2)? c.direct.LEFT: c.direct.RIGHT;
+        mouseRight(bot);
+        mouseLeft(bot);
+    }else if(bot.strategy.status == c.BOT.WARN){
+        //chay
+        // console.log("lstWarn");
+        var lstWarn = GetLst(bot, "lstWarn");
+        bot.deg = FindBestDirection(bot, lstWarn);
+        bot.direction = (Math.abs(bot.deg) > Math.PI/2)? c.direct.LEFT: c.direct.RIGHT;
+        // mouseLeft(bot);
+    }else {
+        //find target to attack
+        
+        var lstSave = GetLst(bot, "lstSave" );
+        // console.log("lstSave", lstSave.length );
+        if(lstSave.length != 0){
+            var point = util.getMinPoint(bot, lstSave);
+            bot.deg = Math.atan2(point.y - bot.y, point.x - bot.x);
+            bot.direction = (Math.abs(bot.deg) > Math.PI/2)? c.direct.LEFT: c.direct.RIGHT;
+        }else{
+            // console.log("VIRUS");
+            var dataVirus = [];
+            for (var i = 0; i < virus.length; i++) {
+                if(virus[i].y > 100)
+                    dataVirus.push(virus[i]);
+            }
+            var point = util.getMinPoint(bot, dataVirus);
+            if(util.getDistance(bot, point) < 200){
+                bot.deg = Math.atan2(point.y - bot.y, point.x - bot.x);
+                bot.direction = (Math.abs(bot.deg) > Math.PI/2)? c.direct.LEFT: c.direct.RIGHT;
+            }else{
+                // console.log("FOOD");
+                point = util.getMinPoint(bot, food);
+                if(point == undefined)
+                    return;
+                bot.deg = Math.atan2(point.y - bot.y, point.x - bot.x); 
+                bot.direction = (Math.abs(bot.deg) > Math.PI/2)? c.direct.LEFT: c.direct.RIGHT;
+            }
+        } 
+    }
+}
+
+function addJellyFish(toAdd) {
+    var i = util.randomInRange(0, c.jellyFish.typeMax);
+    while (toAdd--) {
+        jellyFishs.push({
+            // Make IDs unique.
+            id: ((new Date()).getTime() + '' + jellyFishs.length) >>> 0,
+            x: util.randomInRange(0, c.gameWidth),
+            y: c.gameHeight + util.randomInRange(0, c.gameWidth)* 0.2,
+            width: c.jellyFish.width,
+            height: c.jellyFish.height,
+            target: {
+                x : 0,
+                y : 0,
+            },
+            speedAnimation: 0,
+            frameAnimation: 0,
+            column: c.jellyFish.column,
+            row: c.jellyFish.row,
+            isHut: false,
+            type: c.typeObj.JELLY,
+            level: i
+        });
+    }
+}
 
 function addAirBubble(toAdd) {
     while (toAdd--) {
@@ -41,59 +330,132 @@ function addAirBubble(toAdd) {
     }
 }
 
-function addMinFood(toAdd) {
+function addLight(toAdd) {
     while (toAdd--) {
-        minFood.push({
+        light.push({
             // Make IDs unique.
-            id: ((new Date()).getTime() + '' + minFood.length) >>> 0,
-            x: Math.floor(Math.random()* c.gameWidth * 0.8),
-            y: Math.floor(Math.random()* c.gameHeight* 0.8),
-            choose: false,
-            timeOut: 0
+            id: ((new Date()).getTime() + '' + light.length) >>> 0,
+            x: util.randomInRange(0, c.gameWidth),
+            y: c.gameHeight + util.randomInRange(0, c.gameWidth)* 0.2,
+            target: {
+                x : 0,
+                y : 0
+            },
+            isHut: false,
+            radius: c.light.radius,
+            type: c.typeObj.LIGHT,
+            level: 0
         });
     }
 }
+
 function addFood(toAdd) {
     var size = c.food.level.length;
-    var rand = Math.random();
-    var i = 0;
-    for (var j = 0; j < size; j++) {
-        if(size < 0.5){
-            i = 0;
-            break;
-        }else if(size < 0.7){
-            i = 1;
-            break;
-        }else if(rand < 0.7 + (j - 1) * 0.3/ (size - 2)){
-            i = j;
-            break;
-        }
 
-    }
-    var radius = c.food.level[i].radius;
     while (toAdd--) {
-        var position = c.foodUniformDisposition ? 
-        util.uniformPosition(food, radius) 
-        : util.randomPosition(radius);
+        var i = util.randomLevelFood(size);
+        var radius = c.food.level[i].radius;
+        var minFood =new Boid.create(c.food.level[i].speed, 0.02);
+      
+        minFood.position.x = Math.random() * c.gameWidth - c.gameWidth/2;
+        minFood.position.y = Math.random() * c.gameHeight - c.gameHeight/2;
+        minFood.velocity.x = Math.random() * 2 - 1;
+        minFood.velocity.y = Math.random() * 2 - 1;
+        minFood.setAvoidWalls( true );
+        minFood.setWorldSize( c.gameWidth/2, c.gameHeight/2, 200 );
+        boids.push(minFood);
         food.push({
             // Make IDs unique.
             id: ((new Date()).getTime() + '' + food.length) >>> 0,
-            x: position.x,
-            y: position.y,
+            x: minFood.position.x + c.gameWidth/2,
+            y: minFood.position.y + c.gameHeight/2,
             direction: c.direct.LEFT,
             target: {
-                x: Math.floor(Math.random()* c.gameWidth * 0.8),
-                y: Math.floor(Math.random()* c.gameHeight* 0.8)
+                x: 0,
+                y: 0
             },
             radius: c.food.level[i].radius,
             mass: c.food.level[i].foodMass,
             speedAnimation: 0,
             frameAnimation: 0,
             column: c.food.level[i].column,
+            width: c.food.level[i].width,
+            height: c.food.level[i].height,
             row: c.food.level[i].row,
             isHut: false,
             type: c.typeObj.FOOD,
-            level: i
+            level: i,
+            jellyCollision: {
+                status: false,
+                time: 0
+            }
+        });
+    }
+}
+
+function addBoom(player) {
+    console.log(player.numberBoom.status);
+    if(!player.numberBoom.status)
+        return;
+    player.numberBoom.number --;
+    player.numberBoom.status = false;
+    player.numberBoom.time = new Date().getTime();
+    var radius = c.boom.radius;
+    booms.push({
+        id: ((new Date()).getTime() + '' + booms.length) >>> 0,
+        playerId: player.id,
+        time: (new Date()).getTime(),
+        x: player.x,
+        y: player.y,
+        radius: radius,
+        speedAnimation: 0,
+        frameAnimation: 0,
+        column: c.boom.column,
+        row: c.boom.row,
+        type: c.typeObj.VIRUS,
+        status: c.virus.status.LIVE,
+        frameEnd: 0
+    });
+}
+
+function addEnemy(toAdd) {
+     while (toAdd--) {
+        var radius = c.virus.radius;
+        var i = util.randomInRange(0, users.length - 1);
+        enemies.push({
+            id: ((new Date()).getTime() + '' + enemies.length) >>> 0,
+            idTarget: i == -1? 0 : users[i].id,
+            typeTarget: "player",
+            time: (new Date()).getTime(),
+            x: util.randomInRange(0, c.gameWidth),
+            y: c.gameHeight + util.randomInRange(0, c.gameWidth)* 0.2,
+            target :{
+                x: 0,
+                y: 0
+            },
+            height: c.sharkFish.level[0].height,
+            width: c.sharkFish.level[0].width,
+            speed: c.sharkFish.level[0].speed,
+            radius: radius,
+            column: c.sharkFish.level[0].column,
+            row: c.sharkFish.level[0].row,
+            direction: c.direct.RIGHT,
+            animation: {
+                status: false,
+                time: 0
+            },
+            isHut: false,
+            speedAnimation: 0,
+            frameAnimation: 0,
+            type: c.typeObj.ENEMY,
+            jellyCollision: {
+                status: false,
+                time: 0
+            },
+            eatFish:{
+                status: false,
+                time: 0
+            }
         });
     }
 }
@@ -105,12 +467,13 @@ function addVirus(toAdd) {
         virus.push({
             id: ((new Date()).getTime() + '' + virus.length) >>> 0,
             x: position.x,
-            y: 0,
+            y: c.gameHeight +  util.randomInRange(50, 50 + c.gameWidth/10),
             target :{
                 x: position.x,
-                y: util.randomInRange(50, c.gameHeight)
+                y: 0
             },
             radius: radius,
+            speedAnimation: 0,
             frameAnimation: 0,
             type: c.typeObj.VIRUS,
             status: c.virus.status.LIVE
@@ -128,13 +491,20 @@ function getTypeFish(mass){
 
 function movePlayer(player) {
    
+    var position ={
+        x: player.x,
+        y: player.y
+    };
     if(player.isHut == true){
         var deg = Math.atan2(player.target.y, player.target.x);
 
         var slowDown = 1;
-        if(player.speed <= 6.25) {
-           // slowDown = util.log(player.mass, c.slowBase) + initMassLog;
-        }
+        // if(player.speed <= 6.25) {
+        //    slowDown = util.log(20, c.slowBase) + initMassLog;
+        // }
+        if(player.target != undefined)
+            slowDown = 1 + 1.0 / util.log(Math.max(10,util.getDistance(position, player.target)), 20);
+
        deltaY = player.speed * Math.sin(deg)/slowDown;
        deltaX = player.speed * Math.cos(deg)/slowDown;
         
@@ -146,30 +516,40 @@ function movePlayer(player) {
         }
         return;
     }
-    //var x =0, y = 0;
 
+    if(player.jellyCollision.status == true){
+        return;
+    }
+    var deg, dist;
+    if(player.type == c.typeObj.AIBOT){
+        deg = player.deg;
+        //console.log(deg);
+    }
+    else{
     var target = player.target;
     if(target.x == 0 && target.y == 0){
         return;
     }
-    //var dist = Math.sqrt(Math.pow(target.y, 2) + Math.pow(target.x, 2));
-    var deg = Math.atan2(target.y, target.x);
-
-    var slowDown = 1;
-    if(player.speed <= 6.25) {
-        //slowDown =  initMassLog + 1;
+    dist = Math.sqrt(Math.pow(target.y, 2) + Math.pow(target.x, 2));
+    deg = Math.atan2(target.y, target.x);
     }
+    var slowDown = 1;
+    // if(player.speed <= 6.25) {
+    //     slowDown =  initMassLog + 1;
+    // }
+    if(player.target != undefined)
+        slowDown = 1 + 1.0 / util.log(Math.max(10,util.getDistance(position, player.target)), 20);
 
     var deltaY = player.speed * Math.sin(deg)/ slowDown;
     var deltaX = player.speed * Math.cos(deg)/ slowDown;
 
-    if(player.speed > 6.25) {
+    if(player.speed > c.speedPlayer) {
         player.speed -= 0.5;
     }
-    // if (dist < (50 + player.radius)) {
-    //     deltaY *= dist / (50 + player.radius);
-    //     deltaX *= dist / (50 + player.radius);
-    // }
+    if (dist < (50 + player.radius)) {
+        deltaY *= dist / (50 + player.radius);
+        deltaX *= dist / (50 + player.radius);
+    }
     if (!isNaN(deltaY)) {
         player.y += deltaY;
     }
@@ -193,12 +573,18 @@ function movePlayer(player) {
 }
 // di chuyển các đối thủ khác.
 function moveFood(mass) {
-    if(mass.target == undefined){
+    if(mass.target == undefined ){
         return;
     }
+    var position = {
+        x: mass.x,
+        y: mass.y
+    };
     var deltaY = 0;
     var deltaX = 0;
     var slowDown = 1;
+    if(mass.target != undefined)
+     slowDown = 1 + 1.0 / util.log(Math.max(10,util.getDistance(position, mass.target)), 20);
     if(mass.isHut == true){
         var deg = Math.atan2(mass.target.y, mass.target.x);
        deltaY = mass.speed * Math.sin(deg)/slowDown;
@@ -212,21 +598,39 @@ function moveFood(mass) {
         }
         return;
     }
+    if((mass.type == c.typeObj.FOOD || mass.type == c.typeObj.ENEMY ) && mass.jellyCollision.status == true)
+        return;
     var deg = Math.atan2(mass.target.y - mass.y, mass.target.x - mass.x);
 
-    if(mass.type == c.typeObj.VIRUS){
-        deltaY = 5;
+    if(mass.type == c.typeObj.LIGHT){
+        deltaY = -3;
         deltaX = 0;
-
     }else if(mass.type == c.typeObj.FOOD){
         if(mass.stand != undefined && mass.stand == true)
             return;
         deltaY = c.food.level[mass.level].speed * Math.sin(deg)/slowDown;
         deltaX = c.food.level[mass.level].speed * Math.cos(deg)/slowDown;
-    }else if(mass.type == c.typeObj.AIR){
-        deltaY = -5;
-        deltaX = 0;
-    }else if(mass.type == c.typeObj.MASS){
+    }else if(mass.type == c.typeObj.AIBOT){
+        if(mass.stand != undefined && mass.stand == true)
+            return;
+        deltaY = 6 * Math.sin(deg)/slowDown;
+        deltaX = 6 * Math.cos(deg)/slowDown;
+
+    }
+    else if(mass.type == c.typeObj.ENEMY ){
+        if(mass.stand != undefined && mass.stand == true)
+            return;
+        deltaY = mass.speed * Math.sin(deg)/slowDown;
+        deltaX = mass.speed * Math.cos(deg)/slowDown;
+    }
+    // else if(mass.type == c.typeObj.AIR){
+    //     deltaY = -5;
+    //     deltaX = 0;
+    // }else if(mass.type == c.typeObj.JELLY){
+    //     deltaY = -1;
+    //     deltaX = 0;
+    // }
+    else if(mass.type == c.typeObj.MASS){
         deltaY = mass.speed * Math.sin(deg)/slowDown;
         deltaX = mass.speed * Math.cos(deg)/slowDown;
         mass.speed -= 0.5;
@@ -234,10 +638,12 @@ function moveFood(mass) {
             mass.speed = 0;
         }
     }
-    
-    mass.y += deltaY;
-    mass.x += deltaX;
-
+    if(!isNaN(deltaX)  && !isNaN(deltaY)){
+        mass.y += deltaY;
+        mass.x += deltaX;
+    }
+    // if(mass.type == c.typeObj.JELLY || mass.type == c.typeObj.VIRUS || mass.type == c.typeObj.AIR)
+    //     return;
     var borderCalc = mass.radius / 2;
     if (mass.x > c.gameWidth - borderCalc) {
         mass.x = c.gameWidth - borderCalc;
@@ -253,37 +659,33 @@ function moveFood(mass) {
     }
 }
 
-function balanceMass() {
-    // var totalMass = food.length * c.foodMass +
-    //     users
-    //         .map(function(u) {return u.massTotal; })
-    //         .reduce(function(pu,cu) { return pu+cu;}, 0);
-
-    // var massDiff = c.gameMass - totalMass;
-    // var maxFoodDiff = c.food.maxFood - food.length;
-    // var foodDiff = parseInt(massDiff / c.foodMass) - maxFoodDiff;
-    // var foodToAdd = Math.min(foodDiff, maxFoodDiff);
-    // var foodToRemove = -Math.max(foodDiff, maxFoodDiff);
-    
-    var foodToAdd = c.food.maxFood - food.length;
+function balanceMass() {  
+    var foodToAdd = Math.min(c.food.maxFood - food.length, (bots.length + users.length)* 5);
     if (foodToAdd > 0) {
         console.log('[DEBUG] Adding ' + foodToAdd + ' food to level!');
         addFood(foodToAdd);
     }
-    
 
-    var virusToAdd = c.virus.maxVirus - virus.length;
-
-    if (virusToAdd > 0) {
-        addVirus(virusToAdd);
+    if (c.virus.maxVirus > virus.length) {
+        addVirus(c.virus.maxVirus - virus.length);
     }
-    if(c.maxMinFood > minFood.length){
-        addMinFood(c.maxMinFood- minFood.length);
+    if(c.light.maxLight > light.length){
+        addLight(c.light.maxLight - light.length);
     }
     if(c.airBubble.maxAirBubble > airBubbles.length){
         addAirBubble(c.airBubble.maxAirBubble - airBubbles.length);
     }
- 
+
+    if(c.jellyFish.maxJellyFish > jellyFishs.length){
+        addJellyFish(c.jellyFish.maxJellyFish - jellyFishs.length);
+    }
+
+    if(c.sharkFish.maxSharkFish > enemies.length){
+        addEnemy(c.sharkFish.maxSharkFish - enemies.length);
+    }
+    if(c.numberBot > bots.length){
+        addAIBot(c.numberBot - bots.length);
+    }
 }
 
 io.on('connection', function (socket) {
@@ -292,14 +694,13 @@ io.on('connection', function (socket) {
     var type = socket.handshake.query.type;
     var radius = c.fishType["0"].radius;
     var position = c.newPlayerInitialPosition == 'farthest' ? util.uniformPosition(users, radius) : util.randomPosition(radius);
-
-     
     var massTotal = 0;
 
     var currentPlayer = {
         id: socket.id,
         x: position.x,
         y: position.y,
+        numberBoom: 0,
         radius: radius,
         speed: c.speedPlayer,
         speedAnimation: 0,
@@ -309,7 +710,7 @@ io.on('connection', function (socket) {
         column: c.fishType["0"].column,
         row: c.fishType["0"].row,
         massTotal: massTotal,
-        hue: Math.round(Math.random() * 360),
+        kill: 0,
         type: type,
         lastHeartbeat: new Date().getTime(),
         target: {
@@ -319,63 +720,45 @@ io.on('connection', function (socket) {
         isHut: false,
         direction: c.direct.LEFT,
         timeAcceleration: {status: true, timeClick: 0},
-        timeSpeed: {status: true, timeClick: 0}
+        timeSpeed: {status: true, timeClick: 0},
+        jellyCollision: {
+                status: false,
+                time: 0
+        },
+        levelUp: {
+            status: true,
+            time: new Date().getTime(),
+            level: 0,
+            targetMass : c.fishType[0].maxMass,
+            minMass : 0
+        },
+        living: {
+            status: true,
+            time: 0
+        },
+        light: {
+            radius: c.light.defaultRadiusLight
+        },
+        eatting: {
+            status: false,
+            time: 0
+        },
+        rank: 0
+
+
     };
+    socket.on('addBoom',function(){
+        console.log("addBoom");
+        if(currentPlayer.numberBoom.number > 0){
+            console.log("currentPlayer.id", currentPlayer.id);
+            addBoom(currentPlayer);
+        }
+    });
     socket.on('mouseRight',function(){
-
-        function HutObject(obj){ 
-            if(obj == undefined || obj.id == currentPlayer.id)
-                return;
-
-            var distance = util.getDistance(currentPlayer, obj);
-            var deg1 = Math.atan2(obj.y, obj.x);
-            var deg2 = Math.atan2(currentPlayer.y, currentPlayer.x);
-            var sub = deg2 - deg1;
-
-            var deg = Math.atan2(currentPlayer.target.y, currentPlayer.target.x);
-            var slowDown = 1;
-            deltaY = currentPlayer.speed * Math.sin(deg)/slowDown;
-            deltaX = currentPlayer.speed * Math.cos(deg)/slowDown;
-            var direction2 = (currentPlayer.x < obj.x) ? 1: -1;
-            if(distance < c.radiusAbsorb  && (Math.abs(sub) < Math.PI/4) && !(direction2 ^ direction)){
-                obj.target = {x: currentPlayer.x + deltaX + direction * currentPlayer.width/2 -obj.x, y :currentPlayer.y + deltaY -obj.y};
-                obj.speed = 20;
-                obj.isHut = true;
-                if(obj.type == c.typeObj.MASS)
-                    console.log("massFOOD", obj);
-            }
-        
-        }
-        if(!currentPlayer.timeAcceleration.status){
-            return;
-        }
-        currentPlayer.timeAcceleration.status = false;
-        currentPlayer.timeAcceleration.timeClick = new Date().getTime();
-        var direction = (currentPlayer.target.x > 0) ? 1: -1;
-        
-       for (var i = 0; i < food.length; i++) {
-            HutObject(food[i]);
-        }
-        console.log("massFood", massFood);
-        for (var i = 0; i < massFood.length; i++) {
-            HutObject(massFood[i]);
-        }
-        for (var i = 0; i < users.length; i++) {
-            HutObject(users[i]);
-        }
-        // food.forEach(HutObject);
-        // massFood.forEach(HutObject);
-        // users.forEach(HutObject);
-        
+        mouseRight(currentPlayer);
     });
     socket.on('mouseLeft',function(){
-        if(!currentPlayer.timeSpeed.status){
-            return;
-        }
-        currentPlayer.timeSpeed.status = false;
-        currentPlayer.timeSpeed.timeClick = new Date().getTime();
-        currentPlayer.speed = 20;
-        
+        mouseLeft(currentPlayer);
     });
     socket.on('gotit', function (player) {
         if (util.findIndex(users, player.id) > -1) {
@@ -391,29 +774,69 @@ io.on('connection', function (socket) {
 
             var radius = c.fishType["0"].radius;
             var position = c.newPlayerInitialPosition == 'farthest' ? util.uniformPosition(users, radius) : util.randomPosition(radius);
-
-            player.x = position.x;
-            player.y = position.y;
-            player.target.x = 0;
-            player.target.y = 0;
-            if(type === 'player') {
-                player.massTotal = c.defaultPlayerMass;
-                player.radius = radius;
-            }
-            else {
-                 player.massTotal = 0;
-            }
-            player.hue = Math.round(Math.random() * 360);
-            currentPlayer = player;
-            currentPlayer.lastHeartbeat = new Date().getTime();
+            currentPlayer = {
+                id: socket.id,
+                x: position.x,
+                y: position.y,
+                numberBoom: {
+                    number: 0,
+                    status: true,
+                    time: 0
+                },
+                radius: radius,
+                speed: c.speedPlayer,
+                speedAnimation: 0,
+                frameAnimation: 0,
+                width: c.fishType["0"].width,
+                height: c.fishType["0"].height,
+                column: c.fishType["0"].column,
+                row: c.fishType["0"].row,
+                massTotal: massTotal,
+                kill: 0,
+                hue: Math.round(Math.random() * 360),
+                type: type,
+                lastHeartbeat: new Date().getTime(),
+                target: {
+                    x: 0,
+                    y: 0
+                },
+                name: player.name,
+                isHut: false,
+                direction: c.direct.LEFT,
+                timeAcceleration: {status: true, timeClick: 0},
+                timeSpeed: {status: true, timeClick: 0},
+                jellyCollision: {
+                        status: false,
+                        time: 0
+                },
+                levelUp: {
+                    status: true,
+                    time: new Date().getTime(),
+                    level: 0,
+                    targetMass : c.fishType[0].maxMass,
+                    minMass : 0
+                },
+                living: {
+                    status: true,
+                    time: 0
+                },
+                light: {
+                    radius: c.light.defaultRadiusLight
+                },
+                eatting: {
+                    status: false,
+                    time: 0
+                },
+                rank: 0
+            };
+            // currentPlayer = player;
             users.push(currentPlayer);
             console.log("USER: ", users);
 
             io.emit('playerJoin', { name: currentPlayer.name });
             var temp1 = {
                 gameWidth: c.gameWidth,
-                gameHeight: c.gameHeight,
-                serverPort: serverPort
+                gameHeight: c.gameHeight
             }
             socket.emit('gameSetup', temp1);
             console.log('Total players: ' + users.length);
@@ -433,17 +856,29 @@ io.on('connection', function (socket) {
 
     socket.on('respawn', function () {
         console.log('respawn');
-        if (util.findIndex(users, currentPlayer.id) > -1)
+        if (util.findIndex(users, currentPlayer.id) > -1){
+            users[util.findIndex(users, currentPlayer.id)] = {};
             users.splice(util.findIndex(users, currentPlayer.id), 1);
+        }
         socket.emit('welcome', currentPlayer);
     });
 
     socket.on('disconnect', function () {
-        if (util.findIndex(users, currentPlayer.id) > -1)
+        if (util.findIndex(users, currentPlayer.id) > -1){
+            users[util.findIndex(users, currentPlayer.id)] = {};
             users.splice(util.findIndex(users, currentPlayer.id), 1);
+        }
         console.log('[INFO1] User ' + currentPlayer.name + ' disconnected!');
 
         socket.broadcast.emit('playerDisconnect', { name: currentPlayer.name });
+    });
+    socket.on('playerChat', function(data) {
+        var _sender = data.sender.replace(/(<([^>]+)>)/ig, '');
+        var _message = data.message.replace(/(<([^>]+)>)/ig, '');
+        if (c.logChat === 1) {
+            console.log('[CHAT] [' + (new Date()).getHours() + ':' + (new Date()).getMinutes() + '] ' + _sender + ': ' + _message);
+        }
+        socket.broadcast.emit('serverSendPlayerChat', {sender: _sender, message: _message.substring(0,35)});
     });
     // Heartbeat function, update everytime.
     socket.on('0', function(target) {
@@ -458,130 +893,214 @@ io.on('connection', function (socket) {
         }
     });
 });
+function mouseLeft(currentPlayer){
+    if(!currentPlayer.timeSpeed.status){
+            return;
+        }
+        // console.log("F");
+        currentPlayer.timeSpeed.status = false;
+        currentPlayer.timeSpeed.timeClick = new Date().getTime();
+        currentPlayer.speed = 20;
+}
+function mouseRight(currentPlayer){
+    function AbsorbObject(obj){ 
+            if(obj == undefined || obj.id == currentPlayer.id)
+                return;
+            var distance = util.getDistance(currentPlayer, obj);
+            var deg1 = Math.atan2(obj.y, obj.x);
+            var deg2 = Math.atan2(currentPlayer.y, currentPlayer.x);
+            var sub = deg2 - deg1;
 
+            var deg = Math.atan2(currentPlayer.target.y, currentPlayer.target.x);
+            var slowDown = 1;
+            deltaY = currentPlayer.speed * Math.sin(deg)/slowDown;
+            deltaX = currentPlayer.speed * Math.cos(deg)/slowDown;
+            var direction2 = (currentPlayer.x < obj.x) ? 1: -1;
+            if(distance < c.radiusAbsorb  && (Math.abs(sub) < Math.PI/4) && !(direction2 ^ direction)){
+                obj.target = {x: currentPlayer.x + deltaX + direction * currentPlayer.width/2 -obj.x, y :currentPlayer.y + deltaY -obj.y};
+                obj.speed = 10;
+                obj.isHut = true;
+            }
+        
+        }
+        // if(currentPlayer.numberBoom > 0){
+        //     console.log("currentPlayer.id", currentPlayer.id);
+        //     addBoom(currentPlayer);
+        // }
+        if(currentPlayer.timeAcceleration.status){
+            currentPlayer.timeAcceleration.status = false;
+            currentPlayer.timeAcceleration.timeClick = new Date().getTime();
+        }
+        // if(!currentPlayer.timeAcceleration.status){
+        //     if(currentPlayer.timeAcceleration.timeClick + 2000 > new Date().getTime())
+        //         return;
+        // }
+        
+        var direction = (currentPlayer.target.x > 0) ? 1: -1;
+        
+        food.forEach(AbsorbObject);
+        massFood.forEach(AbsorbObject);
+        users.forEach(AbsorbObject);
+        bots.forEach(AbsorbObject);
+        jellyFishs.forEach(AbsorbObject);
+        virus.forEach(AbsorbObject);
+        enemies.forEach(AbsorbObject);
+        light.forEach(AbsorbObject);
+}
+
+function checkFishEatCircle(fish, circle){ 
+    if(fish == undefined)
+        return false;
+    var directionObject = fish.direction == c.direct.RIGHT? 1 : -1;  
+    
+    
+    var p1= new SAT.Vector(fish.x + directionObject * fish.width/2, fish.y + fish.height/4);
+    var p2= new SAT.Vector(fish.x + directionObject * fish.width/2, fish.y - fish.height/4);
+    var p3= new SAT.Vector(fish.x,fish.y);
+    
+
+    var v = new SAT.Circle(new SAT.Vector(circle.x, circle.y), circle.radius);
+    return SAT.pointInCircle(p1, v) | SAT.pointInCircle(p2, v) | SAT.pointInCircle(p3, v) ;
+}
+
+function checkFishInCircle(fish, circle){ 
+    if(fish == undefined)
+        return false;
+    var v1 =  new SAT.Vector(fish.x - fish.width/2,fish.y );
+    var v2 = new SAT.Vector(fish.x ,fish.y - fish.height/2);
+    var v3 = new SAT.Vector(fish.x + fish.width/2,fish.y );
+    var v4 = new SAT.Vector(fish.x ,fish.y + fish.height/2);
+    var c = new SAT.Circle(new SAT.Vector(circle.x, circle.y), circle.radius);
+    return SAT.pointInCircle(v1, c) || SAT.pointInCircle(v2, c) || SAT.pointInCircle(v3, c) || SAT.pointInCircle(v4, c);
+}
+
+
+function checkFishEatFish(fish1, fish2) {
+        if(fish1 != undefined && fish2 != undefined && fish1.id != fish2.id) {
+            var response = new SAT.Response();
+            var directionObject = fish1.direction == c.direct.RIGHT? 1 : -1;
+            
+            var p = new SAT.Polygon(new SAT.Vector(), [
+              new SAT.Vector(fish1.x + directionObject * fish1.width/2, fish1.y + fish1.height/4),
+              new SAT.Vector(fish1.x + directionObject * fish1.width/2, fish1.y - fish1.height/4),
+              new SAT.Vector(fish1.x,fish1.y)
+            ]);
+            var v1 =  new SAT.Vector(fish2.x - fish2.width/2,fish2.y );
+            var v2 = new SAT.Vector(fish2.x ,fish2.y + fish2.height/2);
+            var v3 = new SAT.Vector(fish2.x + fish2.width/2,fish2.y );
+            var v4 = new SAT.Vector(fish2.x ,fish2.y - fish2.height/2);
+                
+            var collided = SAT.pointInPolygon(v1,p) || SAT.pointInPolygon(v2,p) ||SAT.pointInPolygon(v3,p) || SAT.pointInPolygon(v4,p);
+            
+            return collided;
+        }
+         return false;
+    }
 function tickPlayer(currentPlayer) {
+    if(currentPlayer.eatting.status && currentPlayer.eatting.time + 3000 > new Date().getTime()){
+        currentPlayer.eatting.status = false;
+        currentPlayer.eatting.time = 0;
+    }
     if(!currentPlayer.timeAcceleration.status){
+        if(currentPlayer.timeAcceleration.timeClick + 1000 > new Date().getTime())
+                mouseRight(currentPlayer);
         if(currentPlayer.timeAcceleration.timeClick < new Date().getTime() - c.timeAcceleration){
             currentPlayer.timeAcceleration.timeClick  = 0;
             currentPlayer.timeAcceleration.status = true;
         }
     }
-
+    
     if(!currentPlayer.timeSpeed.status){
         if(currentPlayer.timeSpeed.timeClick < new Date().getTime() - c.timeSpeed){
             currentPlayer.timeSpeed.timeClick  = 0;
             currentPlayer.timeSpeed.status = true;
         }
     }
+
+    if(!currentPlayer.numberBoom.status){
+        if(currentPlayer.numberBoom.time < new Date().getTime() - c.timeSpeed){
+            currentPlayer.numberBoom.time  = 0;
+            currentPlayer.numberBoom.status = true;
+        }
+    }
+
+    if(currentPlayer.levelUp.status){
+        if(currentPlayer.levelUp.time < new Date().getTime() - c.timeLevelUp){
+            currentPlayer.levelUp.time  = 0;
+            currentPlayer.levelUp.status = false;
+        }
+    }
     movePlayer(currentPlayer);
 
-    function funcFood(f) {
-        var directionObject = (currentPlayer.target.x > 0)? 1: -1;
-      //  var response = new SAT.Response();
-        //var p = new SAT.Polygon(new SAT.Vector(), [
-        var v1 = new SAT.Vector(currentPlayer.x + directionObject * currentPlayer.width/2,currentPlayer.y + currentPlayer.height/4);
-        var v2 =  new SAT.Vector(currentPlayer.x + directionObject * currentPlayer.width/2,currentPlayer.y - currentPlayer.height/4);
-        var v3 =  new SAT.Vector(currentPlayer.x  ,currentPlayer.y);
-        //]);
-        var food = new SAT.Circle(new SAT.Vector(f.x, f.y), f.radius);
-        // return SAT.pointInPolygon(new V(f.x, f.y), p);
-        return SAT.pointInCircle(v1, food) || SAT.pointInCircle(v2, food) || SAT.pointInCircle(v3, food);
-    }
-    // kiểm tra đụng độ boom.
-    function funcFood2(f) {
-        if(f.status == c.virus.status.DIED)
-            return false;
-        var v1 =  new SAT.Vector(currentPlayer.x - currentPlayer.width/2,currentPlayer.y );
-        var v2 = new SAT.Vector(currentPlayer.x ,currentPlayer.y + currentPlayer.height/2);
-        var v3 = new SAT.Vector(currentPlayer.x + currentPlayer.width/2,currentPlayer.y );
-        var v4 = new SAT.Vector(currentPlayer.x ,currentPlayer.y - currentPlayer.height/2);
-        var boom = new SAT.Circle(new SAT.Vector(f.x, f.y), f.radius);
-        return SAT.pointInCircle(v1, boom) || SAT.pointInCircle(v2, boom) || SAT.pointInCircle(v3, boom) || SAT.pointInCircle(v4, boom) ;
-    }
-
-    function deleteFood(f) {
-        food[f] = {};
-        food.splice(f, 1);
-    }
-
-    function check(user) {
-        if(user.id !== currentPlayer.id) {
-            var response = new SAT.Response();
-            var directionObject = (currentPlayer.target.x > 0)? 1: -1;
-            var p = new SAT.Polygon(new SAT.Vector(), [
-              new SAT.Vector(currentPlayer.x + directionObject * currentPlayer.width/2, currentPlayer.y + currentPlayer.height/4),
-              new SAT.Vector(currentPlayer.x + directionObject * currentPlayer.width/2, currentPlayer.y - currentPlayer.height/4),
-              new SAT.Vector(currentPlayer.x,currentPlayer.y)
-            ]);
-            var v1 =  new SAT.Vector(user.x - user.width/2,user.y );
-            var v2 = new SAT.Vector(user.x ,user.y + user.height/2);
-            var v3 = new SAT.Vector(user.x + user.width/2,user.y );
-            var v4 = new SAT.Vector(user.x ,user.y - user.height/2);
-                
-            var collided = SAT.pointInPolygon(v1,p) || SAT.pointInPolygon(v2,p) ||SAT.pointInPolygon(v3,p) || SAT.pointInPolygon(v4,p);
-            
-            if (collided) {
-                response.aUser = currentPlayer;
-                response.bUser = {
-                    id: user.id,
-                    name: user.name,
-                    x: user.x,
-                    y: user.y,
-                    massTotal: user.massTotal
-                };
-                playerCollisions.push(response);
-            }
-        }
-        return true;
-    }
+    
     function updateRadius(currentPlayer){
-        var type = getTypeFish(currentPlayer.massTotal);
-        currentPlayer.radius = c.fishType[type].radius;
-        currentPlayer.width = c.fishType[type].width;
-        currentPlayer.height = c.fishType[type].height;
-        currentPlayer.column = c.fishType[type].column;
-        currentPlayer.row = c.fishType[type].row;
+        var level = getTypeFish(currentPlayer.massTotal);
+        if(currentPlayer.levelUp.level < level) {
+            currentPlayer.levelUp.level = level;
+            currentPlayer.levelUp.status = true;
+            currentPlayer.levelUp.targetMass = c.fishType[level].maxMass;
+            currentPlayer.levelUp.minMass = level > 0 ? c.fishType[level-1].maxMass: 0;
+            currentPlayer.levelUp.time = new Date().getTime();
+            currentPlayer.radius = c.fishType[level].radius;
+            currentPlayer.width = c.fishType[level].width;
+            currentPlayer.height = c.fishType[level].height;
+            currentPlayer.column = c.fishType[level].column;
+            currentPlayer.row = c.fishType[level].row;
+        }
     }
-    function collisionCheck(collision) {
-        if (getTypeFish(collision.aUser.massTotal) > getTypeFish(collision.bUser.massTotal) ){
-            console.log('[DEBUG] Killing user: ' + collision.bUser.id);
-            console.log('[DEBUG] Collision info:');
-            console.log(collision);
-
-            var numUser = util.findIndex(users, collision.bUser.id);
-            if (numUser > -1) {
-                users.splice(numUser, 1);
-                sockets[collision.bUser.id].emit('RIP');
-            }
-            currentPlayer.massTotal += collision.bUser.massTotal;
-            updateRadius(currentPlayer);
+    
+    for (var i = 0; i < light.length; i++) {
+        if(checkFishEatCircle(currentPlayer, light[i])){
+            if(currentPlayer.light.radius + 20 < c.light.defaultRadiusLight * 3)
+                currentPlayer.light.radius += 50;
+            light[i] = {};
+            light.splice(i, 1);            
+            i--;
         }
     }
 
-    var playerCircle = new C(
-            new V(currentPlayer.x, currentPlayer.y),
-            currentPlayer.radius
-        );
+    for (var i = 0; i < food.length; i++) {
+        if(checkFishEatCircle(currentPlayer, food[i])){
+            currentPlayer.massTotal += food[i].mass;
+            currentPlayer.kill ++;
+            currentPlayer.eatting.status = true;
+            currentPlayer.eatting.time = new Date().getTime();
+            food[i] = {};
+            food.splice(i, 1);
+            boids[i] = {};
+            boids.splice(i,1);
+            i--;
+            
+        }
+    }
+    updateRadius(currentPlayer);
+    for (var i = 0; i < massFood.length; i++) {
+        if(checkFishEatCircle(currentPlayer, massFood[i])){
+            currentPlayer.massTotal += massFood[i].masa;
+            massFood[i] = {};
+            massFood.splice(i, 1);
+        }
+    }
+    updateRadius(currentPlayer);
 
-    var foodEaten = food.map(funcFood)
-        .reduce( function(a, b, c) { return b ? a.concat(c) : a; }, []);
-
-    foodEaten.forEach(deleteFood);
-
-    var massEaten = massFood.map(funcFood)
-        .reduce(function(a, b, c) {return b ? a.concat(c) : a; }, []);
-
-    var virusCollision = virus.map(funcFood2)
-           .reduce( function(a, b, c) { return b ? a.concat(c) : a; }, []);
-
-        if(virusCollision.length > 0 ) {
-            var numUser = util.findIndex(users, currentPlayer.id);
-            users.splice(numUser, 1);
-            virus[virusCollision[0]].status = c.virus.status.DIED;
-            var count = 6;//(virusCell.mass/ c.fireFood > c.limitSplit) ? virusCell.mass/ c.fireFood : c.limitSplit;
-
-            var radius = 20;
+    for (var i = 0; i < virus.length; i++) {
+        if(checkFishEatCircle(currentPlayer, virus[i])){
+            if(currentPlayer.numberBoom.number < 3)
+                currentPlayer.numberBoom.number += 1;
+            virus[i] = {};
+            virus.splice(i, 1);        
+        }
+    }
+    for (var i = 0; i < booms.length; i++) {
+        if(booms[i].status != c.virus.status.DIED &&checkFishInCircle(currentPlayer, booms[i])){
+            if(currentPlayer.id == booms[i].playerId)
+                return;
+            currentPlayer.living.status = false;
+            currentPlayer.living.time = new Date().getTime();
+            booms[i].status = c.virus.status.DIED;
+            var count = 5;
             var masa = currentPlayer.massTotal/count;
+            var radius = util.massToRadius(masa);
             for (var i = 0; i < count; i++) {
                 massFood.push({
                     id: ((new Date()).getTime() + '' + massFood.length) >>> 0,
@@ -598,36 +1117,117 @@ function tickPlayer(currentPlayer) {
                     type: c.typeObj.MASS,
                     speed: 25
                 });
-            }
-
-            sockets[currentPlayer.id].emit('RIP');
-            
-        }
-
-    var masaGanada = 0;
-    for(var m=0; m<massEaten.length; m++) {
-        masaGanada += massFood[massEaten[m]].masa;
-        massFood[massEaten[m]] = {};
-        massFood.splice(massEaten[m],1);
-        for(var n=0; n<massEaten.length; n++) {
-            if(massEaten[m] < massEaten[n]) {
-                massEaten[n]--;
-            }
+            }     
         }
     }
 
-    masaGanada += (foodEaten.length * c.foodMass);
+    for (var k = 0; k < bots.length; k++) {
+        if(getTypeFish(currentPlayer.massTotal) > getTypeFish(bots[k].massTotal) &&checkFishEatFish(currentPlayer, bots[k])){
+            currentPlayer.massTotal += bots[k].massTotal;
+            currentPlayer.kill ++;
+            currentPlayer.eatting.status = true;
+            currentPlayer.eatting.time = new Date().getTime();
+            bots[k].living.status = false;
+            bots[k].living.time = new Date().getTime();
+        }
+    }
+    updateRadius(currentPlayer);
 
-    if(masaGanada != undefined && masaGanada != null){
-        currentPlayer.massTotal += masaGanada;
-        updateRadius(currentPlayer);
+    for (var k = 0; k < users.length; k++) {
+        if(getTypeFish(currentPlayer.massTotal) > getTypeFish(users[k].massTotal) && checkFishEatFish(currentPlayer, users[k])){
+            currentPlayer.massTotal += users[k].massTotal;
+            currentPlayer.kill ++;
+            currentPlayer.eatting.status = true;
+            currentPlayer.eatting.time = new Date().getTime();
+            users[k].living.status = false;
+            users[k].living.time = new Date().getTime();
+        }
     }
 
-    var playerCollisions = [];
-    for (var i = 0; i < users.length; i++) {
-        check(users[i]);
+    for (var k = 0; k < enemies.length; k++) {
+        if(checkFishEatFish(enemies[i], currentPlayer)){
+            enemies[i].animation.status = true;
+            enemies[i].animation.time = new Date().getTime();
+            currentPlayer.living.status = false;
+            currentPlayer.living.time = new Date().getTime();
+        }
     }
-    playerCollisions.forEach(collisionCheck);
+
+    // var pos = 0;
+    // for (var i = 0; i < enemies.length; i++) {
+    //     pos = util.findIndex(users, enemies[i].idTarget);
+    //     if(pos != -1){
+    //         enemies[i].target.x = users[pos].x;
+    //         enemies[i].target.y = users[pos].y;
+    //     }else if(users.length > 0){
+    //         pos = util.randomInRange(0, users.length);
+    //         enemies[i].target.x = users[pos].x;
+    //         enemies[i].target.y = users[pos].y;
+    //         enemies[i].idTarget = users[pos].idTarget;
+    //     }
+    
+    //     if(enemies[i].x < enemies[i].target.x){
+    //         enemies[i].direction = c.direct.RIGHT;
+    //     }else {
+    //        // console.log("LEFT");
+    //         enemies[i].direction = c.direct.LEFT;
+    //     }
+
+    //     for (var j = 0; j < booms.length; j++) {
+    //        if(checkFishInCircle(enemies[i], booms[j])){
+    //             //console.log("BOOOM");
+    //             enemies[i] = {};
+    //             enemies.splice(i, 1);
+    //             booms[j].status = c.virus.status.DIED;
+    //        }
+    //     }
+    //     for (var k = 0; k < users.length; k++) {
+    //         if(users[k].living.status && checkFishEatFish(enemies[i], users[k])){
+    //             // sockets[users[k].id].emit('RIP');
+    //             // users.splice(k, 1);
+    //             enemies[i].eatFish.status = true;
+    //             enemies[i].eatFish.time = new Date().getTime();
+    //             users[k].living.status = false;
+    //             var count = -1;
+    //             pos = -1;
+    //             for (var i = 0; i < users.length; i++) {
+    //                 if(users[i].living.status){
+    //                     pos = i;
+    //                     break;
+    //                 }
+    //             }
+    //             // pos = util.randomInRange(0, count - 1);
+    //             //console.log(pos);
+    //             if(pos >= 0){
+    //                 enemies[i].target.x = users[pos].x;
+    //                 enemies[i].target.y = users[pos].y;
+    //                 enemies[i].typeTarget = "player";
+    //             }else {
+    //                 pos = util.randomInRange(0, bots.length- 1);
+    //             //console.log(pos);
+    //             if(bots.length > 0){
+    //                 enemies[i].target.x = bots[pos].x;
+    //                 enemies[i].target.y = bots[pos].y;
+    //                 enemies[i].typeTarget = "bot";
+    //             }
+    //             }
+    //         }
+    //     }
+    //     for (var k = 0; k < bots.length; k++) {
+    //         if(bots[k].living.status && checkFishEatFish(enemies[i], bots[k])){
+    //             //bots.splice(k, 1);
+    //             bots[k].living.status = false;
+    //             pos = util.randomInRange(0, bots.length);
+    //             //console.log(pos);
+    //             if(bots.length > 0){
+    //                 enemies[i].target.x = bots[pos].x;
+    //                 enemies[i].target.y = bots[pos].y;
+    //             }
+    //         }
+    //     }
+    // }
+
+    
 }
 function UpdateSpeedAnimation(obj){
     if(obj == undefined){
@@ -642,21 +1242,107 @@ function UpdateSpeedAnimation(obj){
             }
     }
 }
+function jellyFishCollision(f){
+    if(f.jellyCollision.status == true){
+            if(f.jellyCollision.time + c.jellyFish.time < new Date().getTime())
+                f.jellyCollision.status = false;
+            return;
+    }
+    var v1 =  new SAT.Vector(f.x - f.width/2,f.y );
+    var v2 = new SAT.Vector(f.x ,f.y + f.height/2);
+    var v3 = new SAT.Vector(f.x + f.width/2,f.y );
+    var v4 = new SAT.Vector(f.x ,f.y - f.height/2);
+
+    for (var i = 0; i < jellyFishs.length; i++) {
+        var temp = jellyFishs[i];
+        // var box = new SAT.Polygon(//new SAT.Vector(temp.x- temp.width/2, temp.y- temp.height/2), [
+        //      new SAT.Vector(),[
+        //       new SAT.Vector(temp.x - temp.width/2, temp.y - temp.height/2),
+        //       new SAT.Vector(temp.x + temp.width/2, temp.y - temp.height/2),
+        //       new SAT.Vector(temp.x + temp.width/2, temp.y + temp.height/2),
+        //       new SAT.Vector(temp.x - temp.width/2, temp.y + temp.height/2)
+        //     ]);
+        var box = new SAT.Box(new V(temp.x, temp.y), temp.width, temp.height).toPolygon();
+        var p2 = new SAT.Polygon(new SAT.Vector(), [
+                new SAT.Vector(f.x - f.width/2,f.y),
+                new SAT.Vector(f.x ,f.y - f.height/2),
+                new SAT.Vector(f.x + f.width/2,f.y ),
+                new SAT.Vector(f.x ,f.y + f.height/2)
+            ]);
+        // if(SAT.pointInPolygon(v1, box) || SAT.pointInPolygon(v2, box) || SAT.pointInPolygon(v3, box) || SAT.pointInPolygon(v4, box) ){
+        //     f.jellyCollision.status = true;
+        //     f.jellyCollision.time = (new Date()).getTime();
+        //     return;
+        // }
+        if(SAT.testPolygonPolygon(box, p2)){
+            f.jellyCollision.status = true;
+            f.jellyCollision.time = (new Date()).getTime();
+            return;
+        }
+    }    
+    return;
+}
+function UpdateJellyCollion(){  
+    for (var i = 0; i < users.length; i++) {
+        jellyFishCollision(users[i]);
+    }
+    
+    for (var i = 0; i < bots.length; i++) {
+        jellyFishCollision(bots[i]); 
+    }
+    for (var i = 0; i < enemies.length; i++) {
+        jellyFishCollision(enemies[i]);
+    }
+}
 function moveloop() {
     for (var i = 0; i < users.length; i++) {
         UpdateSpeedAnimation(users[i]);
-        tickPlayer(users[i]);
+        if(users[i].living.status)
+            tickPlayer(users[i]);
+        if(users[i].living.status == false  && users[i].living.time + 3000 < new Date().getTime()){
+            sockets[users[i].id].emit('RIP');
+            users[i] = {};
+            users.splice(i, 1);
+            i--;
+        }
     }
+    for (var i = 0; i < bots.length; i++) {
+        if(bots[i].living.status)
+            tickPlayer(bots[i]);
+        if(bots[i].living.status == false){
+            bots[i] = {};
+            bots.splice(i, 1);
+            i--;
+        }
+    }    
 
     for (i=0; i < virus.length; i++) {
-        if(virus[i].target.y > virus[i].y && virus[i].status == c.virus.status.LIVE) 
+        if(virus[i].isHut)
             moveFood(virus[i]);
-        if(virus[i].status == c.virus.status.DIED)
-        {
-            virus[i].frameAnimation ++;
-            if(virus[i].frameAnimation > 60){
+        else{
+        virus[i].y -= 3;
+            if(virus[i].y < 0){
                 virus[i] = {};
                 virus.splice(i,1);
+                i --;
+            }
+        }
+    }
+
+    var currentTime = new Date().getTime();
+    for (i=0; i < booms.length; i++) {
+        UpdateSpeedAnimation(booms[i]);
+        if(booms[i].status == c.virus.status.LIVE){
+            if(currentTime > booms[i].time + c.defaultTime){
+                booms[i].status = c.virus.status.DIED;
+            }
+        }
+        if(booms[i].status == c.virus.status.DIED)
+        {
+            booms[i].frameEnd ++;
+            if(booms[i].frameEnd > 120){
+                booms[i] = {};
+                booms.splice(i,1);
                 i--;
             }
         }
@@ -668,80 +1354,83 @@ function moveloop() {
 
     for (i=0; i < food.length; i++) {
         if(food[i] != undefined){
-            UpdateSpeedAnimation(food[i]);
-            tickFood(food[i]);
+            if(food[i].isHut){
+                moveFood(food[i]);
+                continue;
+            }
+            Boid.run(boids[ i ], boids );
+            if(boids[i].position.x + c.gameWidth/2 < food[i].x)
+                food[i].direction = c.direct.LEFT;
+            else food[i].direction = c.direct.RIGHT;
+            food[i].x = boids[i].position.x + c.gameWidth/2;
+            food[i].y = boids[i].position.y + c.gameHeight/2;
         }
     }
     for (var i = 0; i < airBubbles.length; i++) {
-            moveFood(airBubbles[i]);     
+            airBubbles[i].y -=3;
             if(airBubbles[i].target.y > airBubbles[i].y){
                 airBubbles[i] = {};
                 airBubbles.splice(i,1);
                 i--;
             }
     }
-}
-function tickFood(food){
-    function funcMinFood(f) {
-        if(f.choose == true && f.timeOut + 6000 < new Date().getTime()){
-            food.stand = true;
-            return true;
-        }
-        var circle = new C(new V(food.x,food.y), food.radius);
-        return SAT.pointInCircle(new V(f.x, f.y), circle);
-    }
 
-    function deleteFood(f) {
-        minFood[f] = {};
-        minFood.splice(f, 1);
-    }
-
-    function findMinFood(){
-        var min = 0;
-        var index = -1;
-        for (var i = 0; i < minFood.length; i++) {
-            if(minFood[i] != undefined && minFood[i].choose == false && (index == -1 || min > util.getDistance(minFood[i], food))) {
-                min = util.getDistance(minFood[i], food);
-                index = i;
+    for (var i = 0; i < light.length; i++) {
+        if(light[i].isHut)
+            moveFood(light[i]);
+        else {
+            light[i].y -= 3;
+            if(light[i].y < 0){
+                light[i] = {};
+                light.splice(i,1);
+                i--;
             }
         }
-        if(index == -1){    
-            return undefined;
-        }
-        minFood[index].timeOut = new Date().getTime();
-        minFood[index].choose = true;
-        return minFood[index];
     }
-    var minFoodEaten = minFood.map(funcMinFood)
-        .reduce( function(a, b, c) { return b ? a.concat(c) : a; }, []);
-    minFoodEaten.forEach(deleteFood);
 
-    if(food.isHut == false){
-        var length = minFood.length;
-        var data = findMinFood();
-        if(data != undefined){
-            food.target.x = data.x;
-            food.target.y = data.y;
-            food.stand = false;
-            food.direction = food.target.x > food.x ? c.direct.RIGHT : c.direct.LEFT;
-        }
+    for (var i = 0; i < jellyFishs.length; i++) {
+            UpdateSpeedAnimation(jellyFishs[i]);
+            if(jellyFishs[i].isHut)
+                moveFood(jellyFishs[i]);
+            else{
+                jellyFishs[i].y -= 1;
+                if(jellyFishs[i].y < 0){
+                    jellyFishs[i] = {};
+                    jellyFishs.splice(i,1);
+                    i--;
+                }
+            }
     }
-    moveFood(food);
+
+    for (var i = 0; i < enemies.length; i++) {
+        if(enemies[i].eatFish.status){
+            UpdateSpeedAnimation(enemies[i]);
+            if(enemies[i].eatFish.time + 1000 < new Date().getTime()){
+                enemies[i].eatFish.status = false;
+                enemies[i].eatFish.time = 0;
+                enemies[i].frameAnimation = 0;
+            }
+        }
+        moveFood(enemies[i]);     
+    }
 }
+
 
 function gameloop() {
     if (users.length > 0) {
-        users.sort( function(a, b) { return b.massTotal - a.massTotal; });
+        users.sort( function(a, b) { return b.kill - a.kill; });
 
         var topUsers = [];
 
+        for (var i = 0; i < users.length; i++) {
+            users[i].rank = i + 1;
+        }
         for (var i = 0; i < Math.min(10, users.length); i++) {
-            if(users[i].type == 'player') {
                 topUsers.push({
                     id: users[i].id,
-                    name: users[i].name
+                    name: users[i].name,
+                    kill: users[i].kill
                 });
-            }
         }
         if (isNaN(leaderboard) || leaderboard.length !== topUsers.length) {
             leaderboard = topUsers;
@@ -759,6 +1448,7 @@ function gameloop() {
         
     }
     balanceMass();
+    UpdateJellyCollion();
 }
 
 function sendUpdates() {
@@ -779,13 +1469,44 @@ function sendUpdates() {
             })
             .filter(function(f) { return f; });
 
+        var visibleJellyFish = jellyFishs
+        .map(function(f) {
+                if ( f.x > u.x - u.screenWidth/2 - 20 &&
+                    f.x < u.x + u.screenWidth/2 + 20 &&
+                    f.y > u.y - u.screenHeight/2 - 20 &&
+                    f.y < u.y + u.screenHeight/2 + 20) {
+                    return f;
+                }
+            })
+            .filter(function(f) { return f; });
+
         var visibleAirbble  = airBubbles
             .map(function(f) {
                 if ( f.x > u.x - u.screenWidth/2 - 20 &&
                     f.x < u.x + u.screenWidth/2 + 20 &&
                     f.y > u.y - u.screenHeight/2 - 20 &&
                     f.y < u.y + u.screenHeight/2 + 20) {
-                    return f;
+                // return f;
+                    return {
+                        x: f.x,
+                        y: f.y,
+                        level: f.level
+                    };
+                }
+            })
+            .filter(function(f) { return f; });
+
+        var visibleLight  = light
+            .map(function(f) {
+                if ( f.x > u.x - u.screenWidth/2 - 20 &&
+                    f.x < u.x + u.screenWidth/2 + 20 &&
+                    f.y > u.y - u.screenHeight/2 - 20 &&
+                    f.y < u.y + u.screenHeight/2 + 20) {
+                    return {
+                        x: f.x,
+                        y: f.y,
+                        level: f.level
+                    };
                 }
             })
             .filter(function(f) { return f; });
@@ -796,7 +1517,12 @@ function sendUpdates() {
                     f.x-f.radius < u.x + u.screenWidth/2 + 20 &&
                     f.y+f.radius > u.y - u.screenHeight/2 - 20 &&
                     f.y-f.radius < u.y + u.screenHeight/2 + 20) {
-                    return f;
+                    return {
+                        x: f.x,
+                        y: f.y,
+                        radius: f.radius,
+                        hue: f.hue
+                    }; 
                 }
             })
             .filter(function(f) { return f; });
@@ -807,7 +1533,46 @@ function sendUpdates() {
                     f.x < u.x + u.screenWidth/2 + f.radius &&
                     f.y > u.y - u.screenHeight/2 - f.radius &&
                     f.y < u.y + u.screenHeight/2 + f.radius) {
-                    return f;
+                    return { 
+                        x: f.x,
+                        y: f.y,
+                        radius: f.radius,
+                        frameAnimation: f.frameAnimation
+                    }; 
+                }
+            })
+            .filter(function(f) { return f; });
+
+
+        var visibleBoom  = booms
+            .map(function(f) {
+                if ( f.x > u.x - u.screenWidth/2 - f.radius &&
+                    f.x < u.x + u.screenWidth/2 + f.radius &&
+                    f.y > u.y - u.screenHeight/2 - f.radius &&
+                    f.y < u.y + u.screenHeight/2 + f.radius) {
+                    return {
+                        x: f.x,
+                        y: f.y,
+                        radius: f.radius,
+                        frameAnimation: f.frameAnimation,
+                        status: f.status
+                    };
+                }
+            })
+            .filter(function(f) { return f; });
+
+        var visibleEnemy  = enemies
+            .map(function(f) {
+                if ( f.x > u.x - u.screenWidth/2 - f.radius &&
+                    f.x < u.x + u.screenWidth/2 + f.radius &&
+                    f.y > u.y - u.screenHeight/2 - f.radius &&
+                    f.y < u.y + u.screenHeight/2 + f.radius) {
+                    return {
+                        x: f.x,
+                        y: f.y,
+                        jellyCollision: f.radius,
+                        direction: direction
+                    }; 
                 }
             })
             .filter(function(f) { return f; });
@@ -823,6 +1588,62 @@ function sendUpdates() {
                             id: f.id,
                             x: f.x,
                             y: f.y,
+                            numberBoom: f.numberBoom,
+                            target: f.target,
+                            direction: f.direction,
+                            frameAnimation: f.frameAnimation,
+                            massTotal: Math.round(f.massTotal),
+                            kill: f.kill,
+                            name: f.name,
+                            timeAcceleration: f.timeAcceleration,
+                            timeSpeed: f.timeSpeed,
+                            width: f.width,
+                            height: f.height,
+                            levelUp: f.levelUp,
+                            jellyCollision: f.jellyCollision,
+                            living: f.living,
+                            rank: f.rank
+                        };
+                    } else {
+                        // console.log(f.name, f.timeAcceleration, f.timeSpeed);
+                        return {
+                            x: f.x,
+                            y: f.y,
+                            numberBoom: f.numberBoom,
+                            target: f.target,
+                            radius: f.radius,
+                            direction: f.direction,
+                            frameAnimation: f.frameAnimation,
+                            massTotal: Math.round(f.massTotal),
+                            kill: f.kill,
+                            timeAcceleration: f.timeAcceleration,
+                            timeSpeed: f.timeSpeed,
+                            width: f.width,
+                            height: f.height,
+                            levelUp: f.levelUp,
+                            jellyCollision: f.jellyCollision,
+                            living: f.living,
+                            light: f.light,
+                            eatting: f.eatting,
+                            rank: f.rank
+                        };
+                    }
+                }
+             
+            })
+            .filter(function(f) { return f; });
+
+            var botVisible  = bots
+            .map(function(f) {
+                if ( f.x+f.radius > u.x - u.screenWidth/2 - 20 &&
+                    f.x-f.radius < u.x + u.screenWidth/2 + 20 &&
+                    f.y+f.radius > u.y - u.screenHeight/2 - 20 &&
+                    f.y-f.radius < u.y + u.screenHeight/2 + 20) {
+                        return {
+                            id: f.id,
+                            x: f.x,
+                            y: f.y,
+                            numberBoom: f.numberBoom,
                             target: f.target,
                             radius: f.radius,
                             direction: f.direction,
@@ -833,27 +1654,13 @@ function sendUpdates() {
                             timeAcceleration: f.timeAcceleration,
                             timeSpeed: f.timeSpeed,
                             width: f.width,
-                            height: f.height
-
+                            height: f.height,
+                            levelUp: f.levelUp,
+                            jellyCollision: f.jellyCollision,
+                            status: f.strategy.status,
+                            living: f.living
                         };
-                    } else {
-                        return {
-                            x: f.x,
-                            y: f.y,
-                            target: f.target,
-                            radius: f.radius,
-                            direction: f.direction,
-                            frameAnimation: f.frameAnimation,
-                            massTotal: Math.round(f.massTotal),
-                            hue: f.hue,
-                            timeAcceleration: f.timeAcceleration,
-                            timeSpeed: f.timeSpeed,
-                            width: f.width,
-                            height: f.height
-                        };
-                    }
                 }
-             
             })
             .filter(function(f) { return f; });
 
@@ -867,8 +1674,22 @@ function sendUpdates() {
 
             })
             .filter(function(f) { return f; });
+
+            userRadar = bots.map(function(f){
+                
+                if( f.id != u.id)
+                return {
+                    x : f.x,
+                    y : f.y
+                }
+
+            })
+            .filter(function(f) { return f; });
         
-        sockets[u.id].emit('serverTellPlayerMove', visibleCells, visibleFood, visibleVirus, visibleMass, visibleAirbble, userRadar);
+
+        // console.log("a" ,light);
+
+        sockets[u.id].emit('serverTellPlayerMove', visibleCells, visibleFood, visibleVirus, visibleMass, visibleAirbble, visibleLight, visibleJellyFish, visibleBoom,visibleEnemy, botVisible, userRadar, users.length);
         
         if (leaderboardChanged) {
             sockets[u.id].emit('leaderboard', {
@@ -884,7 +1705,90 @@ setInterval(moveloop, 1000 / 60);
 setInterval(gameloop, 1000);
 setInterval(sendUpdates, 1000 / c.networkUpdateFactor);
 
+function EnemyStrategy(){
+    var pos = 0;
+    // console.log("enemies.length", enemies.length, enemies[0]);
+    var dataUsers = [];
+    for (var i = 0; i < users.length; i++) {
+        if(users[i].living.status){
+            dataUsers.push(users[i]);
+        }
+    }
+    for (var i = 0; i < enemies.length; i++) {
+        if(enemies[i].isHut)
+            continue;
+        if(enemies[i].animation.status && enemies[i].animation.time + 1000 < new Date().getTime()){
+            enemies[i].animation.status = false;
+            enemies[i].animation.time = 0;
+        }
+        if(enemies[i].typeTarget == "player"){
+            pos = util.findIndex(dataUsers, enemies[i].idTarget);
+            //position = {x: users[pos].x, y: users[pos].y};
+        }else if(enemies[i].typeTarget == "bot"){
+            pos = util.findIndex(bots, enemies[i].idTarget);
+            //position = {x: bots[pos].x, y: bots[pos].y};
+        }
 
+        if(pos != -1){
+            if(enemies[i].typeTarget == "player"){
+                enemies[i].target.x = users[pos].x;
+                enemies[i].target.y = users[pos].y;
+            }else {
+                enemies[i].target.x = bots[pos].x;
+                enemies[i].target.y = bots[pos].y;
+            }
+        }else if(dataUsers.length > 0){
+            pos = util.randomInRange(0, users.length);
+            enemies[i].target.x = dataUsers[pos].x;
+            enemies[i].target.y = dataUsers[pos].y;
+            enemies[i].idTarget = dataUsers[pos].id;
+            enemies[i].typeTarget = "player";
+        }else if(bots.length > 0){
+            pos = util.randomInRange(0, bots.length - 1);
+            enemies[i].target.x = bots[pos].x;
+            enemies[i].target.y = bots[pos].y;
+            enemies[i].idTarget = bots[pos].id;
+            enemies[i].typeTarget = "bot";
+            console.log("botENEMY");
+        }
+    
+        if(enemies[i].x < enemies[i].target.x){
+            enemies[i].direction = c.direct.RIGHT;
+        }else {
+            enemies[i].direction = c.direct.LEFT;
+        }
+
+        for (var j = 0; j < booms.length; j++) {
+           if(checkFishInCircle(enemies[i], booms[j])){
+                enemies[i] = {};
+                enemies.splice(i, 1);
+                i--;
+                booms[j].status = c.virus.status.DIED;
+           }
+        }
+    }
+}
+setInterval(function(){
+    for (var i = 0; i < bots.length; i++) {
+        findEnemyToEat(bots[i]);
+        FindDirectionForBot(bots[i]);
+    }
+    
+    EnemyStrategy();
+},1000);
+
+setInterval(function(){
+    for (var i = 0; i < users.length; i++) {
+        if(users[i].light.radius - 20 > c.light.defaultRadiusLight)
+            users[i].light.radius -= 20;
+        else users[i].light.radius = c.light.defaultRadiusLight;
+    }
+},3000);
+
+var serverPort = process.env.PORT || port;
 http.listen(serverPort, function() {
   console.log("Server is listening on port " + serverPort);
+  // console.log("App contain:", app);
 });
+
+
