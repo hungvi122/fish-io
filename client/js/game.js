@@ -486,16 +486,6 @@ function drawPlayersNew(userCurrent) {
         graph.globalAlpha = 1;
         graph.beginPath();
     
-        if(userCurrent.jellyCollision.status){
-           graph.drawImage(imageShock, global.screenWidth / 2 - global.imageShock.x/2 + userCurrent.x - player.x , global.screenHeight / 2 - global.imageShock.y + userCurrent.y - player.y);
-        }
-        graph.fillStyle = global.red;
-        graph.fillRect(circle.x +(- 100)/2 ,circle.y + currentSprite.height/2 + 10,100,10);
-        graph.fillStyle = global.yellow;
-        var massPercent = Math.min(100,(userCurrent.massTotal - userCurrent.levelUp.minMass )/ userCurrent.levelUp.targetMass* 100);
-        graph.fillRect(circle.x + (- 100)/2,circle.y + currentSprite.height/2 + 10,massPercent,10);
-        if(userCurrent.levelUp.status)
-            graph.drawImage(imageEat,userCurrent.levelUp.level * 103 ,0,103, 100,circle.x, circle.y - 150,103,100);
         
         if(userCurrent.direction == global.direct.RIGHT){
             drawSprite(currentSprite.state, currentSprite.colBegin, currentSprite.colCount, currentSprite.rawRightBegin, currentSprite.width, currentSprite.height, userCurrent.frameAnimation, userCurrent, player);
@@ -504,6 +494,17 @@ function drawPlayersNew(userCurrent) {
         }
         if(userCurrent.id == undefined){
             waveImage(userCurrent);
+            if(userCurrent.jellyCollision.status){
+               graph.drawImage(imageShock, global.screenWidth / 2 - global.imageShock.x/2 + userCurrent.x - player.x , global.screenHeight / 2 - global.imageShock.y + userCurrent.y - player.y);
+            }
+            graph.fillStyle = global.red;
+            graph.fillRect(circle.x +(- 100)/2 ,circle.y + currentSprite.height/2 + 10,100,10);
+            graph.fillStyle = global.yellow;
+            var massPercent = Math.min(100,(userCurrent.massTotal - userCurrent.levelUp.minMass )/ userCurrent.levelUp.targetMass* 100);
+            graph.fillRect(circle.x + (- 100)/2,circle.y + currentSprite.height/2 + 10,massPercent,10);
+            if(userCurrent.levelUp.status)
+                graph.drawImage(imageEat,userCurrent.levelUp.level * 103 ,0,103, 100,circle.x, circle.y - 150,103,100);
+
         }
         graph.stroke();
         graph.globalAlpha = 1;
@@ -631,13 +632,13 @@ function waveImage(obj) {
     //     return;
     var w = obj.width,
         h = obj.height ,
-        posX = obj.x - player.x + (global.screenWidth- obj.width)/2,
-        posY = obj.y - player.y + (global.screenHeight - obj.height)/2;
+        posX = Math.round((global.screenWidth- obj.width)/2),
+        posY = Math.round((global.screenHeight - obj.height)/2);
     var options = {
-            squeeze: -0.11,
+            squeeze: -0.12,
             period : 150,
             amplitude: 3,
-            wavelength: w/2
+            wavelength: Math.round(w/2)
         };
     // var options = obj.options;
           
