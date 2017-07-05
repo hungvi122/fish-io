@@ -855,7 +855,7 @@ function mouseLeft(currentPlayer){
         }
         currentPlayer.timeSpeed.status = false;
         currentPlayer.timeSpeed.timeClick = new Date().getTime();
-        currentPlayer.speed = 30;
+        currentPlayer.speed = 20;
 }
 function mouseRight(currentPlayer){
     function AbsorbObject(obj){ 
