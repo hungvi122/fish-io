@@ -433,7 +433,6 @@ function drawPlayersNew(userCurrent) {
        graph.drawImage(imageShock, global.screenWidth / 2 - global.imageShock.x/2 + userCurrent.x - player.x , global.screenHeight / 2 - global.imageShock.y + userCurrent.y - player.y);
     }
     
-<<<<<<< HEAD
     if(userCurrent.direction == global.direct.RIGHT){
         drawSprite(currentSprite.state, currentSprite.colBegin, currentSprite.colCount, currentSprite.rawRightBegin, currentSprite.width, currentSprite.height, userCurrent.frameAnimation, userCurrent, player);
     } else {
@@ -452,70 +451,6 @@ function drawPlayersNew(userCurrent) {
     }
     graph.stroke();
     graph.globalAlpha = 1;
-=======
-        
-        if(userCurrent.direction == global.direct.RIGHT){
-            drawSprite(currentSprite.state, currentSprite.colBegin, currentSprite.colCount, currentSprite.rawRightBegin, currentSprite.width, currentSprite.height, userCurrent.frameAnimation, userCurrent, player);
-        } else {
-            drawSprite(currentSprite.state, currentSprite.colBegin, currentSprite.colCount, currentSprite.rawLeftBegin , currentSprite.width, currentSprite.height, userCurrent.frameAnimation, userCurrent, player);
-        }
-        if(userCurrent.id == undefined){
-            waveImage(userCurrent);
-            if(userCurrent.jellyCollision.status){
-               graph.drawImage(imageShock, global.screenWidth / 2 - global.imageShock.x/2 + userCurrent.x - player.x , global.screenHeight / 2 - global.imageShock.y + userCurrent.y - player.y);
-            }
-            graph.fillStyle = global.red;
-            graph.fillRect(circle.x +(- 100)/2 ,circle.y + currentSprite.height/2 + 10,100,10);
-            graph.fillStyle = global.yellow;
-            var massPercent = Math.min(100,(userCurrent.massTotal - userCurrent.levelUp.minMass )/ userCurrent.levelUp.targetMass* 100);
-            graph.fillRect(circle.x + (- 100)/2,circle.y + currentSprite.height/2 + 10,massPercent,10);
-            if(userCurrent.levelUp.status)
-                graph.drawImage(imageEat,userCurrent.levelUp.level * 103 ,0,103, 100,circle.x, circle.y - 150,103,100);
-
-        }
-        graph.stroke();
-        graph.globalAlpha = 1;
-
-        graph.lineJoin = 'round';
-        graph.lineCap = 'round';
-        graph.fill();
-        graph.stroke();
-        var nameCell = "";
-        if(typeof(userCurrent.id) == "undefined")
-            nameCell = player.name;
-        else
-            nameCell = userCurrent.name;
-
-        var fontSize = Math.max(54 / 3, 12);
-        graph.lineWidth = playerConfig.textBorderSize;
-        graph.fillStyle = playerConfig.textColor;
-        graph.strokeStyle = playerConfig.textBorder;
-        graph.miterLimit = 1;
-        graph.lineJoin = 'round';
-        graph.textAlign = 'center';
-        graph.textBaseline = 'middle';
-        graph.font = 'bold ' + fontSize + 'px sans-serif';
-
-        if (global.toggleMassState === 0) {
-            graph.strokeText(nameCell, circle.x, circle.y);
-            graph.fillText(nameCell, circle.x, circle.y);
-        } else {
-            graph.strokeText(nameCell, circle.x, circle.y);
-            graph.fillText(nameCell, circle.x, circle.y);
-            graph.font = 'bold ' + Math.max(fontSize / 3 * 2, 10) + 'px sans-serif';
-            if(nameCell.length === 0) fontSize = 0;
-            graph.strokeText(Math.round(userCurrent.massTotal), circle.x, circle.y+fontSize);
-            graph.fillText(Math.round(userCurrent.massTotal), circle.x, circle.y+fontSize);
-        }
-        
-    //}
-
-    // prevPositionUsers.splice(0, prevPositionUsers.length);
-
-    // for(var i = 0; i < curPositionUsers.length; i++){
-    //     prevPositionUsers.push(Object.assign({},curPositionUsers[i]));
-    // }
->>>>>>> origin/master
 
     graph.lineJoin = 'round';
     graph.lineCap = 'round';
@@ -628,13 +563,8 @@ function waveImage(obj) {
     //     return;
     var w = obj.width,
         h = obj.height ,
-<<<<<<< HEAD
         posX = Math.round(obj.x - start.x - obj.width/2),
         posY = Math.round(obj.y - start.y - obj.height/2);
-=======
-        posX = Math.round((global.screenWidth- obj.width)/2),
-        posY = Math.round((global.screenHeight - obj.height)/2);
->>>>>>> origin/master
     var options = {
             squeeze: -0.12,
             period : 150,
