@@ -24,45 +24,45 @@ class ChatClient {
 
     // TODO: Break out many of these GameControls into separate classes.
 
-    registerFunctions() {
-        var self = this;
-        this.registerCommand('ping', 'Check your latency.', function () {
-            self.checkLatency();
-        });
+    // registerFunctions() {
+    //     var self = this;
+    //     this.registerCommand('ping', 'Check your latency.', function () {
+    //         self.checkLatency();
+    //     });
 
-        this.registerCommand('dark', 'Toggle dark mode.', function () {
-            self.toggleDarkMode();
-        });
+    //     this.registerCommand('dark', 'Toggle dark mode.', function () {
+    //         self.toggleDarkMode();
+    //     });
 
-        this.registerCommand('border', 'Toggle visibility of border.', function () {
-            self.toggleBorder();
-        });
+    //     this.registerCommand('border', 'Toggle visibility of border.', function () {
+    //         self.toggleBorder();
+    //     });
 
-        this.registerCommand('mass', 'Toggle visibility of mass.', function () {
-            self.toggleMass();
-        });
+    //     this.registerCommand('mass', 'Toggle visibility of mass.', function () {
+    //         self.toggleMass();
+    //     });
 
-        this.registerCommand('continuity', 'Toggle continuity.', function () {
-            self.toggleContinuity();
-        });
+    //     this.registerCommand('continuity', 'Toggle continuity.', function () {
+    //         self.toggleContinuity();
+    //     });
 
-        this.registerCommand('roundfood', 'Toggle food drawing.', function (args) {
-            self.toggleRoundFood(args);
-        });
+    //     this.registerCommand('roundfood', 'Toggle food drawing.', function (args) {
+    //         self.toggleRoundFood(args);
+    //     });
 
-        this.registerCommand('help', 'Information about the chat commands.', function () {
-            self.printHelp();
-        });
+    //     this.registerCommand('help', 'Information about the chat commands.', function () {
+    //         self.printHelp();
+    //     });
 
-        this.registerCommand('login', 'Login as an admin.', function (args) {
-            self.socket.emit('pass', args);
-        });
+    //     this.registerCommand('login', 'Login as an admin.', function (args) {
+    //         self.socket.emit('pass', args);
+    //     });
 
-        this.registerCommand('kick', 'Kick a player, for admins only.', function (args) {
-            self.socket.emit('kick', args);
-        });
-        global.chatClient = this;
-    }
+    //     this.registerCommand('kick', 'Kick a player, for admins only.', function (args) {
+    //         self.socket.emit('kick', args);
+    //     });
+    //     global.chatClient = this;
+    // }
 
     // Chat box implementation for the users.
     addChatLine(name, message, me) {

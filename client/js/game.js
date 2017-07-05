@@ -39,7 +39,7 @@ var foods = [];
 var lights = [];
 var booms = [];
 var jellyFish = [];
-var viruses = [];
+var itemBoom = [];
 var enemies = [];
 var airBubbles = [];
 var radarUser = [];
@@ -48,14 +48,13 @@ var users = [];
 var leaderboard = [];
 var bots = [];
 var bubbles = [];
+var airBubbles = [];
 var target = {x: player.x, y: player.y};
 global.target = target;
 var imageItemBoom = document.getElementById("itemBoom");
-// var imageBoom = document.getElementById("boom");
 var imageBlasting = document.getElementById("blasting");
 var imageShock = document.getElementById("shock");
 var imageLight = document.getElementById("light");
-// var imageWow = document.getElementById("wow");
 var imageBubble = document.getElementById("bubble");
 var imageFood = [
     document.getElementById("food"),
@@ -72,6 +71,21 @@ var imageAirBubble = [
 var imageShark = document.getElementById("shark");
 var imageJellyFish = document.getElementById("jellyFish");
 var imageEat = document.getElementById("eating");
+
+$( "#speed" ).click(function() {
+    socket.emit('mouseLeft');
+    window.canvas.reenviar = false;
+});
+
+$( "#absorb" ).click(function() {
+    socket.emit('mouseRight');
+    window.canvas.reenviar = false;
+});
+
+$( "#boom" ).click(function() {
+    socket.emit('addBoom');
+    window.canvas.reenviar = false;
+});
 function resize(socket) {
     if (!socket) return;
 
@@ -89,13 +103,6 @@ Game.prototype.handleNetwork = function(socket, socketServer,room) {
 window.canvas = new Canvas();
 window.chat = new ChatClient();
   console.log('Game connection process here');
-  // console.log(socket);
-  socket.on('pongcheck', function () {
-        var latency = Date.now() - global.startPingTime;
-        // debug('Latency: ' + latency + 'ms');
-        // window.chat.addSystemLine('Ping: ' + latency + 'ms');
-    });
-
     // Handle error.
     socket.on('connect_failed', function () {
         socket.close();
@@ -105,6 +112,15 @@ window.chat = new ChatClient();
     socket.on('disconnect', function () {
         socket.close();
         global.disconnected = true;
+        window.setTimeout(function() {
+            // document.getElementById('gameAreaWrapper').style.opacity = 0;
+            // document.getElementById('startMenuWrapper').style.maxHeight = '1000px';
+            global.died = false;
+            if (global.animLoopHandle) {
+                window.cancelAnimationFrame(global.animLoopHandle);
+                global.animLoopHandle = undefined;
+            }
+        }, 2500);
     });
 
     // Handle connection.
@@ -151,7 +167,7 @@ window.chat = new ChatClient();
         window.chat.addChatLine(data.sender, data.message, false);
     });
     // Handle movement.
-    socket.on('serverTellPlayerMove', function (userData, foodsList, virusList, massList, airbbleList, lightList, jellyFishList, boomList, visibleEnemy, botVisible, radarUsr, nbUser) {
+    socket.on('serverTellPlayerMove', function (userData, foodsList, itemBoomList, massList, lightList, jellyFishList, boomList, visibleEnemy, botVisible, radarUsr, nbUser) {
         numberUser = nbUser;
         var playerData;
         for(var i =0; i< userData.length; i++) {
@@ -162,36 +178,19 @@ window.chat = new ChatClient();
         }
     
         if(playerData != undefined){
-            player.x = playerData.x;
-            player.y = playerData.y;
-            player.width = playerData.width;
-            player.height = playerData.height;
-            player.hue = playerData.hue;
-            player.massTotal = playerData.massTotal;
-            player.radius = playerData.radius;
-            player.numberBoom = playerData.numberBoom;
-            player.timeAcceleration = playerData.timeAcceleration;
-            player.timeSpeed = playerData.timeSpeed;
-            player.levelUp = playerData.levelUp;
-            player.light = playerData.light;
-            player.eatting = playerData.eatting;
-            player.direction = playerData.direction;
-            player.rank = playerData.rank;
-            player.kill = playerData.kill;
+            player = playerData;
         }
+
         users = userData;
         foods = foodsList;
         radarUser = radarUsr;
-        viruses = virusList;
-        fireFood = massList;
-        airBubbles = airbbleList;
+        itemBoom = itemBoomList;
+        fireFood = massList;    
         jellyFish = jellyFishList;
         booms = boomList;
         enemies = visibleEnemy;
         bots = botVisible;
         lights = lightList;
-        // waveImage();
-
     });
 
     // Death.
@@ -201,7 +200,7 @@ window.chat = new ChatClient();
         // socketServer.emit('leaveRoom', room);
         window.setTimeout(function() {
             // document.getElementById('gameAreaWrapper').style.opacity = 0;
-            document.getElementById('startMenuWrapper').style.maxHeight = '1000px';
+            // document.getElementById('startMenuWrapper').style.maxHeight = '1000px';
             global.died = false;
             if (global.animLoopHandle) {
                 window.cancelAnimationFrame(global.animLoopHandle);
@@ -216,7 +215,21 @@ Game.prototype.handleLogic = function() {
   console.log('Game is running');
   // This is where you update your game logic
 }
-
+function addAirBubble(toAdd) {
+    while (toAdd--) {
+        airBubbles.push({
+            // Make IDs unique.
+            id: ((new Date()).getTime() + '' + airBubbles.length) >>> 0,
+            x: Math.round(Math.random()*global.screenWidth),
+            y: global.screenHeight,
+            target: {
+                x : 0,
+                y : Math.round(Math.random()*global.screenHeight)
+            },
+            level: Math.round(Math.random()*(global.airBubble.typeMax - 1))
+        });
+    }
+}
 function addBubble(toAdd) {
     while (toAdd--) {
         bubbles.push({
@@ -294,9 +307,7 @@ function drawSpriteObj(image, sprite, obj) {
         } else {
             drawSprite(image, sprite.begin, sprite.column, sprite.left, sprite.width, sprite.height,obj.frameAnimation, obj, player);
     }
-    // console.log(obj);
-    // waveImage(food);
-     //graph.closePath();
+   
 }
 
 function drawFireFood(mass) {
@@ -321,8 +332,8 @@ function drawBoom(obj) {
     }else graph.drawImage(imageBlasting,obj.x - player.x + global.screenWidth / 2 - imageBlasting.width/2,obj.y - player.y + global.screenHeight / 2 - imageBlasting.height/2);
 }
 
-function drawVirus(virus) {
-    graph.drawImage(imageItemBoom,virus.x - player.x + global.screenWidth / 2,virus.y - player.y + global.screenHeight / 2);
+function drawItemBoom(itemBoom) {
+    graph.drawImage(imageItemBoom,itemBoom.x - player.x + global.screenWidth / 2,itemBoom.y - player.y + global.screenHeight / 2);
 }
 
 function getFishSpriteData(level){
@@ -366,32 +377,6 @@ var positionQueue = [];
 var prevPositionUsers = [];
 var curPositionUsers = [];
 
-function getNextPosition(cusPos, finalPos){
-    var result = {};
-    var dis = 0;
-    // console.log("cusPos: ", cusPos);
-    // console.log("finalPos: ", finalPos);
-
-    dis = distance2Points(cusPos.x, cusPos.y, finalPos.x, finalPos.y);
-
-    // console.log("Distance: ", dis);
-
-    if(dis <= maxDistanceMove){
-        return finalPos;
-    }
-
-    var ratio = maxDistanceMove / dis;
-
-    // console.log("ratio: ", ratio);
-
-    result.x = cusPos.x - (cusPos.x - finalPos.x)*ratio;
-    result.y = cusPos.y - (cusPos.y - finalPos.y)*ratio;
-
-    // console.log("result return :", result);
-    console.log("Distance split has effected.")
-
-    return result;
-}
 
 function getPosition(user){
     var result = {};
@@ -429,66 +414,32 @@ function updateStateFish(){
 
 }
 function drawPlayersNew(userCurrent) {
-
-    // curPositionUsers.splice(0, curPositionUsers.length);
-    // for(var i = 0; i < order.length; i++){
-    //     var posTmp = getPosition(order[i]);
-    //     curPositionUsers.push(posTmp);
-    // }
-
-    // for(var j = 0; j < curPositionUsers.length; j++){
-
-    //     for(var k = 0; k < prevPositionUsers.length; k++){
-
-    //         if(prevPositionUsers[k].id == curPositionUsers[j].id){
-    //             var nextPos = getNextPosition(prevPositionUsers[k], curPositionUsers[j]);
-    //             // console.log("Next position: ", nextPos);
-    //             curPositionUsers[j].x = nextPos.x;
-    //             curPositionUsers[j].y = nextPos.y;
-    //         }
-    //     }
-    // }
-
-    
-    // if(distance2Points(prevPositionPlayer.x, prevPositionPlayer.y, player.x, player.y) > 20){
-    //     // console.log("Distance :", distance2Points(prevPositionPlayer.x, prevPositionPlayer.y, player.x, player.y));
-    // }
-    
-    // // console.log("prevPosition: ", prevPosition);
-    // // console.log("player x: ", player.x);
-    // // console.log("player y: ", player.y);
-
-    // prevPositionPlayer.x = player.x;
-    // prevPositionPlayer.y = player.y;
-    // // tmp++;
     if(!userCurrent.living.status)
         return;
 
-    var start = {
-        x: player.x - (global.screenWidth / 2),
-        y: player.y - (global.screenHeight / 2)
+    var currentSprite = getFishSpriteData(userCurrent.levelUp.level);
+    
+    var circle = {
+        x: userCurrent.x - start.x,
+        y: userCurrent.y - start.y
     };
 
-   // for(var z=0; z<order.length; z++)
-    //{
-       // var userCurrent = order[z];
-        
+    graph.lineWidth = 1;
+    graph.strokeStyle = global.lineColor;
+    graph.globalAlpha = 1;
+    graph.beginPath();
 
-        var currentSprite = getFishSpriteData(userCurrent.levelUp.level);
-        
-        var circle = {
-            x: userCurrent.x - start.x,
-            y: userCurrent.y - start.y
-        };
-
-        graph.lineWidth = 1;
-        graph.strokeStyle = global.lineColor;
-        graph.globalAlpha = 1;
-        graph.beginPath();
+    if(userCurrent.jellyCollision.status){
+       graph.drawImage(imageShock, global.screenWidth / 2 - global.imageShock.x/2 + userCurrent.x - player.x , global.screenHeight / 2 - global.imageShock.y + userCurrent.y - player.y);
+    }
     
-        if(userCurrent.jellyCollision.status){
-           graph.drawImage(imageShock, global.screenWidth / 2 - global.imageShock.x/2 + userCurrent.x - player.x , global.screenHeight / 2 - global.imageShock.y + userCurrent.y - player.y);
-        }
+    if(userCurrent.direction == global.direct.RIGHT){
+        drawSprite(currentSprite.state, currentSprite.colBegin, currentSprite.colCount, currentSprite.rawRightBegin, currentSprite.width, currentSprite.height, userCurrent.frameAnimation, userCurrent, player);
+    } else {
+        drawSprite(currentSprite.state, currentSprite.colBegin, currentSprite.colCount, currentSprite.rawLeftBegin , currentSprite.width, currentSprite.height, userCurrent.frameAnimation, userCurrent, player);
+    }
+    if(userCurrent.id == undefined){
+        waveImage(userCurrent);
         graph.fillStyle = global.red;
         graph.fillRect(circle.x +(- 100)/2 ,circle.y + currentSprite.height/2 + 10,100,10);
         graph.fillStyle = global.yellow;
@@ -496,59 +447,42 @@ function drawPlayersNew(userCurrent) {
         graph.fillRect(circle.x + (- 100)/2,circle.y + currentSprite.height/2 + 10,massPercent,10);
         if(userCurrent.levelUp.status)
             graph.drawImage(imageEat,userCurrent.levelUp.level * 103 ,0,103, 100,circle.x, circle.y - 150,103,100);
-        
-        if(userCurrent.direction == global.direct.RIGHT){
-            drawSprite(currentSprite.state, currentSprite.colBegin, currentSprite.colCount, currentSprite.rawRightBegin, currentSprite.width, currentSprite.height, userCurrent.frameAnimation, userCurrent, player);
-        } else {
-            drawSprite(currentSprite.state, currentSprite.colBegin, currentSprite.colCount, currentSprite.rawLeftBegin , currentSprite.width, currentSprite.height, userCurrent.frameAnimation, userCurrent, player);
-        }
-        if(userCurrent.id == undefined){
-            waveImage(userCurrent);
-        }
-        graph.stroke();
-        graph.globalAlpha = 1;
+    
+    }
+    graph.stroke();
+    graph.globalAlpha = 1;
 
-        graph.lineJoin = 'round';
-        graph.lineCap = 'round';
-        graph.fill();
-        graph.stroke();
-        var nameCell = "";
-        if(typeof(userCurrent.id) == "undefined")
-            nameCell = player.name;
-        else
-            nameCell = userCurrent.name;
+    graph.lineJoin = 'round';
+    graph.lineCap = 'round';
+    graph.fill();
+    graph.stroke();
+    var nameCell = "";
+    if(typeof(userCurrent.id) == "undefined")
+        nameCell = player.name;
+    else
+        nameCell = userCurrent.name;
 
-        var fontSize = Math.max(54 / 3, 12);
-        graph.lineWidth = playerConfig.textBorderSize;
-        graph.fillStyle = playerConfig.textColor;
-        graph.strokeStyle = playerConfig.textBorder;
-        graph.miterLimit = 1;
-        graph.lineJoin = 'round';
-        graph.textAlign = 'center';
-        graph.textBaseline = 'middle';
-        graph.font = 'bold ' + fontSize + 'px sans-serif';
+    var fontSize = Math.max(54 / 3, 12);
+    graph.lineWidth = playerConfig.textBorderSize;
+    graph.fillStyle = playerConfig.textColor;
+    graph.strokeStyle = playerConfig.textBorder;
+    graph.miterLimit = 1;
+    graph.lineJoin = 'round';
+    graph.textAlign = 'center';
+    graph.textBaseline = 'middle';
+    graph.font = 'bold ' + fontSize + 'px sans-serif';
 
-        if (global.toggleMassState === 0) {
-            graph.strokeText(nameCell, circle.x, circle.y);
-            graph.fillText(nameCell, circle.x, circle.y);
-        } else {
-            graph.strokeText(nameCell, circle.x, circle.y);
-            graph.fillText(nameCell, circle.x, circle.y);
-            graph.font = 'bold ' + Math.max(fontSize / 3 * 2, 10) + 'px sans-serif';
-            if(nameCell.length === 0) fontSize = 0;
-            graph.strokeText(Math.round(userCurrent.massTotal), circle.x, circle.y+fontSize);
-            graph.fillText(Math.round(userCurrent.massTotal), circle.x, circle.y+fontSize);
-        }
-        
-    //}
-
-    // prevPositionUsers.splice(0, prevPositionUsers.length);
-
-    // for(var i = 0; i < curPositionUsers.length; i++){
-    //     prevPositionUsers.push(Object.assign({},curPositionUsers[i]));
-    // }
-
-    // curPositionUsers = [];
+    if (global.toggleMassState === 0) {
+        graph.strokeText(nameCell, circle.x, circle.y);
+        graph.fillText(nameCell, circle.x, circle.y);
+    } else {
+        graph.strokeText(nameCell, circle.x, circle.y);
+        graph.fillText(nameCell, circle.x, circle.y);
+        graph.font = 'bold ' + Math.max(fontSize / 3 * 2, 10) + 'px sans-serif';
+        if(nameCell.length === 0) fontSize = 0;
+        graph.strokeText(Math.round(userCurrent.massTotal), circle.x, circle.y+fontSize);
+        graph.fillText(Math.round(userCurrent.massTotal), circle.x, circle.y+fontSize);
+    }
 }
 
 
@@ -585,11 +519,9 @@ function drawgrid(graph) {
      // graph.beginPath();
 
     // graph.fillStyle="white";
-    graph.  clearRect(0, 0, global.gameWidth, global.gameHeight);
+    graph.  clearRect(0, 0, global.screenWidth, global.screenWidth);
     var img = document.getElementById("bgImg");
-   // var seaweed = document.getElementById("seeweed");
     graph.drawImage(img, (img.width-img.width*(global.screenWidth/global.gameWidth))*((player.x) / global.gameWidth), (img.height-img.height*(global.screenHeight/global.gameHeight))*((player.y)/global.gameHeight), img.width*(global.screenWidth/global.gameWidth), img.height*(global.screenHeight/global.gameHeight), 0, 0, global.screenWidth, global.screenHeight);
-    // graph.drawImage(img,0,0);
     graph.stroke();
     graph.globalAlpha = 1;
    // shadowCtx
@@ -598,14 +530,14 @@ function drawgrid(graph) {
     
     shadowCtx.globalCompositeOperation = "destination-out";
     var gradient;
-    // if(global.gameHeight/4 - player.y > 0)
+    
     {   gradient = shadowCtx.createRadialGradient(global.gameWidth/2- player.x, global.gameHeight/50 - player.y, global.gameWidth/10, global.gameWidth/2 - player.x, global.gameHeight/4 - player.y, global.gameWidth/2);
         gradient.addColorStop(0, "rgba(255, 255, 255, 1.0)");
         gradient.addColorStop(1, "rgba(255, 255, 255, .1)");
         shadowCtx.fillStyle = gradient;
         shadowCtx.fillRect(0, 0, global.screenWidth, global.screenHeight);
     }
-    // RadialGradient as light source #2
+    
     gradient = shadowCtx.createRadialGradient(global.screenWidth/2, global.screenHeight/2 + 30, 10, global.screenWidth/2, global.screenHeight/2 + 30, player.light.radius);
     
     gradient.addColorStop(       0, 'rgba( 0, 0, 0,  1 )' );
@@ -631,13 +563,13 @@ function waveImage(obj) {
     //     return;
     var w = obj.width,
         h = obj.height ,
-        posX = obj.x - player.x + (global.screenWidth- obj.width)/2,
-        posY = obj.y - player.y + (global.screenHeight - obj.height)/2;
+        posX = Math.round(obj.x - start.x - obj.width/2),
+        posY = Math.round(obj.y - start.y - obj.height/2);
     var options = {
-            squeeze: -0.11,
+            squeeze: -0.12,
             period : 150,
             amplitude: 3,
-            wavelength: w/2
+            wavelength: Math.round(w/2)
         };
     // var options = obj.options;
           
@@ -686,50 +618,7 @@ function waveImage(obj) {
 
 }
     
-function drawborder() {
-    graph.lineWidth = 1;
-    graph.strokeStyle = playerConfig.borderColor;
 
-    // Left-vertical.
-    if (player.x <= global.screenWidth/2) {
-        graph.beginPath();
-        graph.moveTo(global.screenWidth/2 - player.x, 0 ? player.y > global.screenHeight/2 : global.screenHeight/2 - player.y);
-        graph.lineTo(global.screenWidth/2 - player.x, global.gameHeight + global.screenHeight/2 - player.y);
-        graph.strokeStyle = global.lineColor;
-        graph.stroke();
-    }
-
-    // Top-horizontal.
-    if (player.y <= global.screenHeight/2) {
-        graph.beginPath();
-        graph.moveTo(0 ? player.x > global.screenWidth/2 : global.screenWidth/2 - player.x, global.screenHeight/2 - player.y);
-        graph.lineTo(global.gameWidth + global.screenWidth/2 - player.x, global.screenHeight/2 - player.y);
-        graph.strokeStyle = global.lineColor;
-        graph.stroke();
-    }
-
-    // Right-vertical.
-    if (global.gameWidth - player.x <= global.screenWidth/2) {
-        graph.beginPath();
-        graph.moveTo(global.gameWidth + global.screenWidth/2 - player.x,
-                     global.screenHeight/2 - player.y);
-        graph.lineTo(global.gameWidth + global.screenWidth/2 - player.x,
-                     global.gameHeight + global.screenHeight/2 - player.y);
-        graph.strokeStyle = global.lineColor;
-        graph.stroke();
-    }
-
-    // Bottom-horizontal.
-    if (global.gameHeight - player.y <= global.screenHeight/2) {
-        graph.beginPath();
-        graph.moveTo(global.gameWidth + global.screenWidth/2 - player.x,
-                     global.gameHeight + global.screenHeight/2 - player.y);
-        graph.lineTo(global.screenWidth/2 - player.x,
-                     global.gameHeight + global.screenHeight/2 - player.y);
-        graph.strokeStyle = global.lineColor;
-        graph.stroke();
-    }
-}
 function updateBubble(){
     for (var i = 0; i < bubbles.length; i++) {
         bubbles[i].y -= Math.round(Math.random() * 4 );
@@ -742,6 +631,20 @@ function updateBubble(){
     }
     if(maxBubble > bubbles.length){
         addBubble(maxBubble - bubbles.length);
+    }
+
+    for (var i = 0; i < airBubbles.length; i++) {
+            airBubbles[i].y -=3;
+            graph.drawImage(imageAirBubble[airBubbles[i].level], airBubbles[i].x, airBubbles[i].y);
+            if(airBubbles[i].target.y > airBubbles[i].y){
+                airBubbles[i] = {};
+                airBubbles.splice(i,1);
+                i--;
+            }
+    }
+
+    if(global.airBubble.maxAirBubble > airBubbles.length){
+        addAirBubble(global.airBubble.maxAirBubble - airBubbles.length);
     }
 
 }
@@ -770,16 +673,12 @@ Game.prototype.handleGraphics = function() {
                 x: player.x - global.screenWidth/2,
                 y: player.y - global.screenHeight/2
             };
-
             graph.fillStyle = global.backgroundColor;
             graph.fillRect(0, 0, global.screenWidth, global.screenHeight);
             drawgrid(graph);
             drawRadar(radarUser);
             fireFood.forEach(drawFireFood);
-            for (var i = 0; i < airBubbles.length; i++) {
-                var item = airBubbles[i];
-                graph.drawImage(imageAirBubble[item.level], item.x - start.x, item.y - start.y);
-            }
+            
             for (var i = 0; i < lights.length; i++) {
                 var item = lights[i];
                 graph.drawImage(imageLight, item.x - start.x, item.y - start.y);
@@ -787,8 +686,8 @@ Game.prototype.handleGraphics = function() {
             for (var i = 0; i < enemies.length; i++) {
                 var item = enemies[i];
                 drawSpriteObj(imageShark, global.enemy[0], item);
-            }
 
+            }
             for (var i = 0; i < jellyFish.length; i++) {
                 var item = jellyFish[i];
                 drawSpriteObj(imageJellyFish, global.jellyFish[item.level], item);
@@ -799,19 +698,18 @@ Game.prototype.handleGraphics = function() {
                 drawSpriteObj(imageFood[item.level], global.food[item.level], item);
             }
 
-            viruses.forEach(drawVirus);
+            itemBoom.forEach(drawItemBoom);
             booms.forEach(drawBoom);
             updateBubble();
             updateStateFish();
             users.forEach(drawPlayersNew);
             bots.forEach(drawPlayersNew);
             
-            socket.emit('0', window.canvas.target); // playerSendTarget "Heartbeat".
+            socket.emit('0', window.canvas.target);
 
         } else {
             graph.fillStyle = '#333333';
             graph.fillRect(0, 0, global.screenWidth, global.screenHeight);
-
             graph.textAlign = 'center';
             graph.fillStyle = '#FFFFFF';
             graph.font = 'bold 30px sans-serif';

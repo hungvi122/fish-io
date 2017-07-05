@@ -12,18 +12,6 @@ exports.validNick = function(nickname) {
 // determine mass from radius of circle
 exports.massToRadius = function (mass) {
      return Math.min(4 + Math.sqrt(mass) * 6, 10);
-    // if (mass < 5) {
-    //    return 4 + Math.sqrt(mass) * 6;
-    // }else 
-    // if(mass < cfg.fishType["0"].maxMass){
-    //     return cfg.fishType["0"].radius;
-    // } else if(mass < cfg.fishType["1"].maxMass){
-    //     return cfg.fishType["1"].radius;
-    // } else if(mass < cfg.fishType["2"].maxMass){
-    //     return cfg.fishType["2"].radius;
-    // } else if(mass < cfg.fishType["3"].maxMass){
-    //     return cfg.fishType["3"].radius;
-    // } else return cfg.fishType["4"].radius;
 };
 
 

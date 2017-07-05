@@ -26,11 +26,15 @@ var global = {
         {"width": 94, "height": 138, "column": 3, "row": 1, "begin": 0, "right": 1, "left": 1}
     ],
     enemy: [
-        {"width": 272, "height": 107, "column": 3, "row": 1, "begin": 0, "right": 0, "left": 1}
+        {"width": 273, "height": 215/2, "column": 3, "row": 1, "begin": 0, "right": 0, "left": 1}
     ],
     boom: [
         {"width": 85, "height": 86, "column": 10, "row": 1, "begin": 0, "right": 0, "left": 1}
     ],
+    airBubble: {
+        "maxAirBubble": 3,
+        "typeMax": 4
+    },
     // Canvas
     screenWidth: window.innerWidth,
     screenHeight: window.innerHeight,

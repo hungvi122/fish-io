@@ -6,12 +6,7 @@
     <link rel="stylesheet" href="/css/main.css" />
     <link rel="stylesheet" href="css/bootstrap.min.css">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
-    <meta property="og:image" content="img/fb.png" />
 
-    <!-- Đặt thẻ này vào phần đầu hoặc ngay trước thẻ đóng phần nội dung của bạn. -->
-<!-- <script src="https://apis.google.com/js/platform.js" async defer>
-  {lang: 'vi'}
-</script> -->
     
 </head>
 <body oncontextmenu="return false;">
@@ -28,46 +23,40 @@
         <div id="info">
             <div><span>Your Kill: </span> <span id="yourKill"></span></div>
             <div><span>Your rank: </span><span id="yourRank"></span ></div>
+            <span id="out"></span>
         </div>
     </div>
 
     <div id="header">
         <div id="baner-icon" style="display: none;">
-            <!-- <div class="col-lg-1 col-md-1 col-sm-2"> -->
+            
             <div style="margin: 0 auto;">
                 <img src="img/ico/cap1.png" class="img-responsive img-circle img-color" alt="Cinque Terre">
-            <!-- </div> -->
-            <!-- <div class="col-lg-1 col-md-1 col-sm-2"> -->
+            
                 <img src="img/ico/cap2.png" class="img-responsive img-circle img-color" alt="Cinque Terre">
-            <!-- </div> -->
-            <!-- <div class="col-lg-1 col-md-1 col-sm-2"> -->
+            
                 <img src="img/ico/cap3.png" class="img-responsive img-circle img-color" alt="Cinque Terre">
-            <!-- </div> -->
-            <!-- <div class="col-lg-1 col-md-1 col-sm-2"> -->
+            
                 <img src="img/ico/cap4.png" class="img-responsive img-circle img-color" alt="Cinque Terre">
-            <!-- </div> -->
-            <!-- <div class="col-lg-1 col-md-1 col-sm-2"> -->
+            
                 <img src="img/ico/cap5.png" class="img-responsive img-circle img-color" alt="Cinque Terre">
-            <!-- </div> -->
-            <!-- <div class="col-lg-1 col-md-1 col-sm-2"> -->
+            
                 <img src="img/ico/cap6.png" class="img-responsive img-circle img-color" alt="Cinque Terre">
-            <!-- </div> -->
-            <!-- <div class="col-lg-1 col-md-1 col-sm-2"> -->
+            
                 <img src="img/ico/cap7.png" class="img-responsive img-circle img-color" alt="Cinque Terre">
-            <!-- </div> -->
-            <!-- <div class="col-lg-1 col-md-1 col-sm-2"> -->
+            
                 <img src="img/ico/cap8.png" class="img-responsive img-circle img-color" alt="Cinque Terre">
             </div>
         </div>
         <div class="row" id="skill-icon" style="display: none;">
             <div class="skill">
                 
-                <img src="img/ico/speed.png" class="img-responsive img-circle img-color-2" alt="Cinque Terre">
+                <img src="img/ico/speed.png" id="speed" class="img-responsive img-circle img-color-2" alt="Cinque Terre">
 
-                <img src="img/ico/tocbien.png" class="img-responsive img-circle img-color-2" alt="Cinque Terre">
+                <img src="img/ico/absorb.png" id="absorb" class="img-responsive img-circle img-color-2" alt="Cinque Terre">
 
             <div style="position: relative;">
-                <img src="img/ico/yBoom.png" class="img-responsive img-circle img-color-2" alt="Cinque Terre">
+                <img src="img/ico/yBoom.png" id="boom" class="img-responsive img-circle img-color-2" alt="Cinque Terre">
                 <span id="numberBoom">0</span>
             </div>
             </div>
@@ -82,12 +71,11 @@
         <img src="img/cap6.png" id="state6"  style="display:none;">
         <img src="img/cap7.png" id="state7"  style="display:none;">
         <img src="img/cap8.png" id="state8"  style="display:none;">
-        <!-- <img src="img/boom.png" id="boom"  style="display:none;"> -->
         <img src="img/blasting.png" id="blasting"  style="display:none;">
-        <img src="img/ico/food1.png" id="food"  style="display:none;">
+        <img src="img/food1.png" id="food"  style="display:none;">
         <img src="img/food2.png" id="food2"  style="display:none;">
-        <img src="img/ico/food3.png" id="food3"  style="display:none;">
-        <img src="img/ico/food4.png" id="food4"  style="display:none;">
+        <img src="img/food3.png" id="food3"  style="display:none;">
+        <img src="img/food4.png" id="food4"  style="display:none;">
         <img src="img/bgMain.svg" id="bgImg"  style="display:none;">
         <img src="img/bubble.png" id="bubble"  style="display:none;">
         <img src="img/airBubble.png" id="airBubble"  style="display:none;">
@@ -96,13 +84,13 @@
         <img src="img/airBubble4.png" id="airBubble4"  style="display:none;">
         <img src="img/itemBoom.png" id="itemBoom"  style="display:none;">
         <img src="img/jellyFish.png" id="jellyFish"  style="display:none;">
-        <img src="img/ico/enemy.png" id="shark"  style="display:none;">
+        <img src="img/shark.png" id="shark"  style="display:none;">
         <img src="img/eating.png" id="eating"  style="display:none;">
         <img src="img/shock.png" id="shock"  style="display:none;">
         <img src="img/light.png" id="light"  style="display:none;">
-        <!-- <img src="img/wow.png" id="wow"  style="display:none;"> -->
+    
     </div>
-    <!-- <img src="img/Seaweed_noBGcopy.png" id="seeweed"  style="display:none;"> -->
+    
     <div id="startMenuWrapper">
         <div id="startMenu" style="display: none;">
             <!-- <p>Fish IO</p> -->
@@ -123,24 +111,18 @@
               </div>
             </div>
             <div id="shareApp" style="display: none;">
+            <a target="_blank" href="https://twitter.com/intent/tweet?status=Come%20and%20play%20https://fish-io.herokuapp.com%20%23fish-io">
+                <img  src="./img/twitter.png">
+            </a>
             <a class="fb-xfbml-parse-ignore" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Ffish-io.herokuapp.com%2F&amp;src=sdkpreparse">
                 <img src="img/facebook.png" />
             </a>
             
-            <a href="https://plus.google.com/share?url=https://fish-io.herokuapp.com/" onclick="javascript:window.open(this.href,
-  '', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=600,width=600');return false;"><img  src="./img/google.png" alt="Share on Google+"/></a>
+            <a href="https://plus.google.com/share?url=https://fish-io.herokuapp.com/" target="_blank"><img  src="./img/google.png" alt="Share on Google+"/></a>
             </div>
 
         </div>
     </div>
-    <!-- <div id="fb-root"></div> -->
-    <!-- <script>(function(d, s, id) {
-      var js, fjs = d.getElementsByTagName(s)[0];
-      if (d.getElementById(id)) return;
-      js = d.createElement(s); js.id = id;
-      js.src = "//connect.facebook.net/en_US/sdk.js#xfbml=1&version=v2.9&appId=178241102713278";
-      fjs.parentNode.insertBefore(js, fjs);
-    }(document, 'script', 'facebook-jssdk'));</script> -->
     <script type="text/javascript" src="js/jquery.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="./js/global.js"></script>

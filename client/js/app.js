@@ -1,6 +1,4 @@
-// var io = require('socket.io-client');
-// var ChatClient = require('./chat.js');
-// var Canvas = require('./canvas');
+
 var playerName;
 var playerNameInput = document.getElementById('playerNameInput');
 
@@ -43,19 +41,18 @@ function startGame(type) {
         // socket = io({query:"type=" + type});
         socket = io({query:"type=" + type});
         SetupSocket(socket, socketServer, localRoom);
+        window.chat.socket = socket;
+        
+        window.canvas.socket = socket;
+        global.socket = socket;
     }
-    // socket = io({query:"type=" + type}
-    //     SetupSocket(socket);
     if (!global.animLoopHandle)
         animloop();
-    // socket = io();
     socket.emit('respawn');
-    // global.socket = socket;
     window.chat.socket = socket;
-    window.chat.registerFunctions();
-    
     window.canvas.socket = socket;
     global.socket = socket;
+    
 
 }
 
@@ -67,20 +64,7 @@ function validNick() {
 }
 var valueProgress = 0;
 var progressTime;
-function progressBar(){
-    valueProgress++;
-    // console.log(valueProgress);
-    $("#progressValue").css("width", valueProgress.toString() + "%");
-    if(valueProgress == 100){
-        document.getElementById('baner-icon').style.display = "block";
-        getServer();
-        clearInterval(progressTime);
-        valueProgress= 0;
-        $("#progressValue").css("width", "0%");
-        $( "#inputText" ).show();
-        $("#progressBar").hide();
-    }
-}
+
 function appRule(){
     var rulesIndex = 1;
             var rules = ["Feed your fish to grow your school","Protect your fish!","Avoid of jellyfish!","Devour other player's Queen fish to growth!","Hold left mouse button to speed up your fish","Hold right mouse button to absorb fish and item", "Space key to create the boom!"];
@@ -100,7 +84,6 @@ function appRule(){
                         });
                 });
             }
-
             setTimeout(function()
             {
                 rotateRules();
@@ -120,10 +103,10 @@ $(document).ready(function(){
         if (validNick()) {
             // getServer();
             startGame('player');
-           
+            nickErrorText.style.opacity = 0;
             
         } else {
-            nickErrorText.style.display = 'inline';
+            nickErrorText.style.opacity = 1;
         }
     };
 
@@ -157,34 +140,35 @@ window.requestAnimFrame = (function(){
             };
 })();
 
+window.cancelAnimFrame = (function(handle) {
+    return  window.cancelAnimationFrame     ||
+            window.mozCancelAnimationFrame;
+})();
 
+var d1 = new Date().getTime();
+var d2;
 function animloop(){
-    requestAnimFrame(animloop);
+    global.animLoopHandle = window.requestAnimFrame(animloop);
     gameLoop();
-    // waveImage();
-    
+    d2 = new Date().getTime();
+    console.log(d2 - d1);
+    d1 = d2;
 }
 
 
 function gameLoop() {
-  // game.handleLogic();
   game.handleGraphics();
 }
 
 
 window.addEventListener('resize', function() {
-    if (!socket) return;
+    console.log("resize");
     screenWidth = window.innerWidth;
     screenHeight = window.innerHeight;
     c.width = screenWidth;
     c.height = screenHeight;
-    document.body.width = player.screenWidth = shadowCanvas.width = c.width = global.screenWidth = global.playerType == 'player' ? window.innerWidth : global.gameWidth;
-    document.body.height = player.screenHeight = shadowCanvas.height = c.height = global.screenHeight = global.playerType == 'player' ? window.innerHeight : global.gameHeight;
-    
-    if (global.playerType == 'spectate') {
-        player.x = global.gameWidth / 2;
-        player.y = global.gameHeight / 2;
-    }
-
+    document.body.width = player.screenWidth = shadowCanvas.width = c.width = global.screenWidth = window.innerWidth ;
+    document.body.height = player.screenHeight = shadowCanvas.height = c.height = global.screenHeight = window.innerHeight;
+    if (!socket) return;
     socket.emit('windowResized', { screenWidth: global.screenWidth, screenHeight: global.screenHeight });
 }, true);
