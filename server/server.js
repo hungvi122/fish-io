@@ -927,8 +927,8 @@ function checkFishEatFish(fish1, fish2) {
             var directionObject = fish1.direction == c.direct.RIGHT? 1 : -1;
             
             var p = new SAT.Polygon(new SAT.Vector(), [
-              new SAT.Vector(fish1.x + directionObject * fish1.width/2, fish1.y + fish1.height/4),
-              new SAT.Vector(fish1.x + directionObject * fish1.width/2, fish1.y - fish1.height/4),
+              new SAT.Vector(fish1.x + directionObject * fish1.width/2, fish1.y + directionObject * fish1.height/4),
+              new SAT.Vector(fish1.x + directionObject * fish1.width/2, fish1.y - directionObject * fish1.height/4),
               new SAT.Vector(fish1.x,fish1.y)
             ]);
             var v1 =  new SAT.Vector(fish2.x - fish2.width/2,fish2.y );
