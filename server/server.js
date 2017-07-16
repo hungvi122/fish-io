@@ -121,54 +121,57 @@ function findEnemyToEat(bot){
     bot.strategy.user.lstSave = [];
     var ereaDanger = new SAT.Circle(new SAT.Vector(bot.x, bot.y), 150);
     var ereaWarn = new SAT.Circle(new SAT.Vector(bot.x, bot.y), 300);
+    //try{
+        var point ;
+        for (var i = 0; i < users.length; i++) {
+            if(!users[i].living && !bot.levelUp && users[i].levelUp && users[i].living.status == false)
+                continue;
+            point = new SAT.Vector(users[i].x, users[i].y);
+            if(SAT.pointInCircle(point, ereaDanger)){
+                if(users[i].levelUp && bot.levelUp.level < users[i].levelUp.level)
+                    bot.strategy.user.lstDanger.push(users[i].id);
+                else if(users[i].levelUp && bot.levelUp.level > users[i].levelUp.level)
+                    bot.strategy.user.lstAttack.push(users[i].id);
+            }
 
-    var point ;
-    for (var i = 0; i < users.length; i++) {
-        if(users[i].living.status == false)
-            continue;
-        point = new SAT.Vector(users[i].x, users[i].y);
-        if(SAT.pointInCircle(point, ereaDanger)){
-            if(bot.levelUp.level < users[i].levelUp.level)
-                bot.strategy.user.lstDanger.push(users[i].id);
-            else if(bot.levelUp.level > users[i].levelUp.level)
-                bot.strategy.user.lstAttack.push(users[i].id);
+            if(SAT.pointInCircle(point, ereaWarn)){
+                if(users[i].levelUp && bot.levelUp.level <= users[i].levelUp.level)
+                    bot.strategy.user.lstWarn.push(users[i].id);
+                else if(users[i].levelUp && bot.levelUp.level > users[i].levelUp.level)
+                    bot.strategy.user.lstSave.push(users[i].id);
+            }
         }
 
-        if(SAT.pointInCircle(point, ereaWarn)){
-            if(bot.levelUp.level <= users[i].levelUp.level)
-                bot.strategy.user.lstWarn.push(users[i].id);
-            else if(bot.levelUp.level > users[i].levelUp.level)
-                bot.strategy.user.lstSave.push(users[i].id);
-        }
-    }
+        for (var i = 0; i < bots.length; i++) {
+            if(bot.id == bots[i].id || !bots[i].living || bots[i].living.status == false)
+                continue;
+            point = new SAT.Vector(bots[i].x, bots[i].y);
+            if(SAT.pointInCircle(point, ereaDanger)){
+                if(bot.levelUp.level < bots[i].levelUp.level)
+                    bot.strategy.bot.lstDanger.push(bots[i].id);
+                else if(bot.levelUp.level > bots[i].levelUp.level)
+                    bot.strategy.bot.lstAttack.push(bots[i].id);
+            }
 
-    for (var i = 0; i < bots.length; i++) {
-        if(bot.id == bots[i].id || bots[i].living.status == false)
-            continue;
-        point = new SAT.Vector(bots[i].x, bots[i].y);
-        if(SAT.pointInCircle(point, ereaDanger)){
-            if(bot.levelUp.level < bots[i].levelUp.level)
-                bot.strategy.bot.lstDanger.push(bots[i].id);
-            else if(bot.levelUp.level > bots[i].levelUp.level)
-                bot.strategy.bot.lstAttack.push(bots[i].id);
+            if(SAT.pointInCircle(point, ereaWarn)){
+                if(bot.levelUp.level <= bots[i].levelUp.level)
+                    bot.strategy.bot.lstWarn.push(bots[i].id);
+                else if(bot.levelUp.level > bots[i].levelUp.level)
+                    bot.strategy.bot.lstSave.push(bots[i].id);
+            }
         }
 
-        if(SAT.pointInCircle(point, ereaWarn)){
-            if(bot.levelUp.level <= bots[i].levelUp.level)
-                bot.strategy.bot.lstWarn.push(bots[i].id);
-            else if(bot.levelUp.level > bots[i].levelUp.level)
-                bot.strategy.bot.lstSave.push(bots[i].id);
-        }
-    }
-
-    if(bot.strategy.bot.lstDanger.length  + bot.strategy.user.lstDanger.length > 0){
-        bot.strategy.status = c.BOT.DANGER;
-    }else if(bot.strategy.bot.lstAttack.length  + bot.strategy.user.lstAttack.length > 0){
-        bot.strategy.status = c.BOT.ATTACK;
-    }else if(bot.strategy.bot.lstWarn.length  + bot.strategy.user.lstWarn.length > 0){
-        bot.strategy.status = c.BOT.WARN;
-    }else
-        bot.strategy.status = c.BOT.SAVE;
+        if(bot.strategy.bot.lstDanger.length  + bot.strategy.user.lstDanger.length > 0){
+            bot.strategy.status = c.BOT.DANGER;
+        }else if(bot.strategy.bot.lstAttack.length  + bot.strategy.user.lstAttack.length > 0){
+            bot.strategy.status = c.BOT.ATTACK;
+        }else if(bot.strategy.bot.lstWarn.length  + bot.strategy.user.lstWarn.length > 0){
+            bot.strategy.status = c.BOT.WARN;
+        }else
+            bot.strategy.status = c.BOT.SAVE;
+    // }catch(e){
+    //     console.log(e);
+    // }
 }
 
 function FindBestDirection(pos, lsEnemy){    
@@ -339,12 +342,12 @@ function addFood(toAdd) {
         var radius = c.food.level[i].radius;
         var minFood =new Boid.create(c.food.level[i].speed, 0.02);
       
-        minFood.position.x = Math.random() * c.gameWidth - c.gameWidth/2;
-        minFood.position.y = Math.random() * c.gameHeight - c.gameHeight/2;
+        minFood.position.x = Math.random() * c.gameWidth;
+        minFood.position.y = Math.random() * c.gameHeight;
         minFood.velocity.x = Math.random() * 2 - 1;
         minFood.velocity.y = Math.random() * 2 - 1;
         minFood.setAvoidWalls( true );
-        minFood.setWorldSize( c.gameWidth/2, c.gameHeight/2, 200 );
+        minFood.setWorldSize( c.gameWidth, c.gameHeight, 200 );
         boids.push(minFood);
         food.push({
             // Make IDs unique.
@@ -629,7 +632,7 @@ function moveObj(mass) {
 function balanceMass() {  
     var addItem = Math.min(c.food.maxFood - food.length, (bots.length + users.length)* 5);
     if (addItem > 0) {
-        console.log('[DEBUG] Adding ' + addItem + ' food to level!');
+        // console.log('[DEBUG] Adding ' + addItem + ' food to level!');
         addFood(addItem);
     }
     addItem = Math.min(c.itemBoom.maxItem - itemBoom.length, (bots.length + users.length)* 2);
@@ -820,9 +823,10 @@ io.on('connection', function (socket) {
     });
 
     socket.on('disconnect', function () {
-        if (util.findIndex(users, currentPlayer.id) > -1){
-            users[util.findIndex(users, currentPlayer.id)] = {};
-            users.splice(util.findIndex(users, currentPlayer.id), 1);
+        var index = util.findIndex(users, currentPlayer.id);
+        if (index > -1){
+            users[index] = {};
+            users.splice(index, 1);
         }
         console.log('[INFO1] User ' + currentPlayer.name + ' disconnected!');
 
@@ -855,7 +859,7 @@ function mouseLeft(currentPlayer){
         }
         currentPlayer.timeSpeed.status = false;
         currentPlayer.timeSpeed.timeClick = new Date().getTime();
-        currentPlayer.speed = 20;
+        currentPlayer.speed = 30;
 }
 function mouseRight(currentPlayer){
     function AbsorbObject(obj){ 
@@ -898,47 +902,30 @@ function mouseRight(currentPlayer){
 function checkFishEatCircle(fish, circle){ 
     if(fish == undefined)
         return false;
-    var directionObject = fish.direction == c.direct.RIGHT? 1 : -1;  
+    var directionObject = fish.direction == c.direct.RIGHT? 1 : -2;  
     
-    
-    var p1= new SAT.Vector(fish.x + directionObject * fish.width/2, fish.y + fish.height/4);
-    var p2= new SAT.Vector(fish.x + directionObject * fish.width/2, fish.y - fish.height/4);
-    var p3= new SAT.Vector(fish.x,fish.y);
-    
+    var box = new SAT.Box(new SAT.Vector(fish.x + directionObject * fish.width/4,fish.y), fish.width/4, fish.height/4).toPolygon();
 
     var v = new SAT.Circle(new SAT.Vector(circle.x, circle.y), circle.radius);
-    return SAT.pointInCircle(p1, v) | SAT.pointInCircle(p2, v) | SAT.pointInCircle(p3, v) ;
+    return SAT.testCirclePolygon(v,box);
 }
 
 function checkFishInCircle(fish, circle){ 
     if(fish == undefined)
         return false;
-    var v1 =  new SAT.Vector(fish.x - fish.width/2,fish.y );
-    var v2 = new SAT.Vector(fish.x ,fish.y - fish.height/2);
-    var v3 = new SAT.Vector(fish.x + fish.width/2,fish.y );
-    var v4 = new SAT.Vector(fish.x ,fish.y + fish.height/2);
+    var box = new SAT.Box(new SAT.Vector(fish.x - fish.width/2,fish.y - fish.height/2), fish.width, fish.height).toPolygon();
     var c = new SAT.Circle(new SAT.Vector(circle.x, circle.y), circle.radius);
-    return SAT.pointInCircle(v1, c) || SAT.pointInCircle(v2, c) || SAT.pointInCircle(v3, c) || SAT.pointInCircle(v4, c);
+    return SAT.testCirclePolygon(c,box);
 }
 
 function checkFishEatFish(fish1, fish2) {
         if(fish1 != undefined && fish2 != undefined && fish1.id != fish2.id) {
-            var response = new SAT.Response();
-            var directionObject = fish1.direction == c.direct.RIGHT? 1 : -1;
-            
-            var p = new SAT.Polygon(new SAT.Vector(), [
-              new SAT.Vector(fish1.x + directionObject * fish1.width/2, fish1.y + directionObject * fish1.height/4),
-              new SAT.Vector(fish1.x + directionObject * fish1.width/2, fish1.y - directionObject * fish1.height/4),
-              new SAT.Vector(fish1.x,fish1.y)
-            ]);
-            var v1 =  new SAT.Vector(fish2.x - fish2.width/2,fish2.y );
-            var v2 = new SAT.Vector(fish2.x ,fish2.y + fish2.height/2);
-            var v3 = new SAT.Vector(fish2.x + fish2.width/2,fish2.y );
-            var v4 = new SAT.Vector(fish2.x ,fish2.y - fish2.height/2);
+            var directionObject = fish1.direction == c.direct.RIGHT? 1 : -2;  
+    
+            var box = new SAT.Box(new SAT.Vector(fish1.x + directionObject * fish1.width/4,fish1.y), fish1.width/4, fish1.height/4).toPolygon();
+            var box2 = new SAT.Box(new SAT.Vector(fish2.x - fish2.width/2,fish2.y - fish2.height/2), fish2.width, fish2.height).toPolygon();
                 
-            var collided = SAT.pointInPolygon(v1,p) || SAT.pointInPolygon(v2,p) ||SAT.pointInPolygon(v3,p) || SAT.pointInPolygon(v4,p);
-            
-            return collided;
+            return SAT.testPolygonPolygon(box, box2);
         }
          return false;
     }
@@ -1113,7 +1100,7 @@ function UpdateSpeedAnimation(obj){
     }
 }
 function jellyFishCollision(f){
-    if(f.jellyCollision.status == true){
+    if(f.jellyCollision && f.jellyCollision.status == true){
             if(f.jellyCollision.time + c.jellyFish.time < new Date().getTime())
                 f.jellyCollision.status = false;
             return;
@@ -1134,7 +1121,7 @@ function jellyFishCollision(f){
                 new SAT.Vector(f.x ,f.y + f.height/2)
             ]);
         
-        if(SAT.testPolygonPolygon(box, p2)){
+        if(f.jellyCollision && SAT.testPolygonPolygon(box, p2)){
             f.jellyCollision.status = true;
             f.jellyCollision.time = (new Date()).getTime();
             return;
@@ -1155,153 +1142,161 @@ function UpdateJellyCollion(){
     }
 }
 function moveloop() {
-    for (var i = 0; i < users.length; i++) {
-        UpdateSpeedAnimation(users[i]);
-        if(users[i].living && users[i].living.status)
-            tickPlayer(users[i]);
-        if(users[i].living && users[i].living.status == false  && users[i].living.time + 1500 < new Date().getTime()){
-            sockets[users[i].id].emit('RIP');
-            users[i] = {};
-            users.splice(i, 1);
-            i--;
-        }
-    }
-    for (var i = 0; i < bots.length; i++) {
-        if(bots[i].living && bots[i].living.status)
-            tickPlayer(bots[i]);
-        if(bots[i].living && bots[i].living.status == false){
-            bots[i] = {};
-            bots.splice(i, 1);
-            i--;
-        }
-    }    
-
-    for (i=0; i < itemBoom.length; i++) {
-        if(itemBoom[i].isHut)
-            moveObj(itemBoom[i]);
-        else{
-        itemBoom[i].y -= 3;
-            if(itemBoom[i].y < 0){
-                itemBoom[i] = {};
-                itemBoom.splice(i,1);
-                i --;
-            }
-        }
-    }
-
-    var currentTime = new Date().getTime();
-    for (i=0; i < booms.length; i++) {
-        UpdateSpeedAnimation(booms[i]);
-        if(booms[i].status == c.itemBoom.status.LIVE){
-            if(currentTime > booms[i].time + c.defaultTime){
-                booms[i].status = c.itemBoom.status.DIED;
-            }
-        }
-        if(booms[i].status == c.itemBoom.status.DIED)
-        {
-            booms[i].frameEnd ++;
-            if(booms[i].frameEnd > 120){
-                booms[i] = {};
-                booms.splice(i,1);
+        try{
+        for (var i = 0; i < users.length; i++) {
+            UpdateSpeedAnimation(users[i]);
+            if(users[i].living && users[i].living.status)
+                tickPlayer(users[i]);
+            if(users[i].living && users[i].living.status == false  && users[i].living.time + 1500 < new Date().getTime()){
+                sockets[users[i].id].emit('RIP');
+                users[i] = {};
+                users.splice(i, 1);
                 i--;
             }
         }
-    }
-
-    for (i=0; i < massFood.length; i++) {
-        if(massFood[i].speed > 0 || massFood[i].isHut) moveObj(massFood[i]);
-    }
-
-    for (i=0; i < food.length; i++) {
-        if(food[i] != undefined){
-            if(food[i].isHut){
-                moveObj(food[i]);
-                continue;
-            }
-            Boid.run(boids[ i ], boids );
-            if(boids[i].position.x + c.gameWidth/2 < food[i].x)
-                food[i].direction = c.direct.LEFT;
-            else food[i].direction = c.direct.RIGHT;
-            food[i].x = boids[i].position.x + c.gameWidth/2;
-            food[i].y = boids[i].position.y + c.gameHeight/2;
-        }
-    }
-    
-
-    for (var i = 0; i < light.length; i++) {
-        if(light[i].isHut)
-            moveObj(light[i]);
-        else {
-            light[i].y -= 3;
-            if(light[i].y < 0){
-                light[i] = {};
-                light.splice(i,1);
+        for (var i = 0; i < bots.length; i++) {
+            if(bots[i].living && bots[i].living.status)
+                tickPlayer(bots[i]);
+            if(bots[i].living && bots[i].living.status == false){
+                bots[i] = {};
+                bots.splice(i, 1);
                 i--;
             }
-        }
-    }
+        }    
 
-    for (var i = 0; i < jellyFishs.length; i++) {
-            UpdateSpeedAnimation(jellyFishs[i]);
-            if(jellyFishs[i].isHut)
-                moveObj(jellyFishs[i]);
+        for (i=0; i < itemBoom.length; i++) {
+            if(itemBoom[i].isHut)
+                moveObj(itemBoom[i]);
             else{
-                jellyFishs[i].y -= 1;
-                if(jellyFishs[i].y < 0){
-                    jellyFishs[i] = {};
-                    jellyFishs.splice(i,1);
+            itemBoom[i].y -= 3;
+                if(itemBoom[i].y < 0){
+                    itemBoom[i] = {};
+                    itemBoom.splice(i,1);
+                    i --;
+                }
+            }
+        }
+
+        var currentTime = new Date().getTime();
+        for (i=0; i < booms.length; i++) {
+            UpdateSpeedAnimation(booms[i]);
+            if(booms[i].status == c.itemBoom.status.LIVE){
+                if(currentTime > booms[i].time + c.defaultTime){
+                    booms[i].status = c.itemBoom.status.DIED;
+                }
+            }
+            if(booms[i].status == c.itemBoom.status.DIED)
+            {
+                booms[i].frameEnd ++;
+                if(booms[i].frameEnd > 120){
+                    booms[i] = {};
+                    booms.splice(i,1);
                     i--;
                 }
             }
-    }
-    
-    for (var i = 0; i < enemies.length; i++) {
-        if(enemies[i].eatFish.status){
-            UpdateSpeedAnimation(enemies[i]);
-            if(enemies[i].eatFish.time + 1000 < new Date().getTime()){
-                enemies[i].eatFish.status = false;
-                enemies[i].eatFish.time = 0;
-                enemies[i].frameAnimation = 0;
+        }
+
+        for (i=0; i < massFood.length; i++) {
+            if(massFood[i].speed > 0 || massFood[i].isHut) moveObj(massFood[i]);
+        }
+
+        for (i=0; i < food.length; i++) {
+            if(food[i] != undefined){
+                if(food[i].isHut){
+                    moveObj(food[i]);
+                    continue;
+                }
+                Boid.run(boids[ i ], boids );
+                if(boids[i].position.x + c.gameWidth/2 < food[i].x)
+                    food[i].direction = c.direct.LEFT;
+                else food[i].direction = c.direct.RIGHT;
+                food[i].x = boids[i].position.x + c.gameWidth/2;
+                food[i].y = boids[i].position.y + c.gameHeight/2;
             }
         }
-        moveObj(enemies[i]);     
+        
+
+        for (var i = 0; i < light.length; i++) {
+            if(light[i].isHut)
+                moveObj(light[i]);
+            else {
+                light[i].y -= 3;
+                if(light[i].y < 0){
+                    light[i] = {};
+                    light.splice(i,1);
+                    i--;
+                }
+            }
+        }
+
+        for (var i = 0; i < jellyFishs.length; i++) {
+                UpdateSpeedAnimation(jellyFishs[i]);
+                if(jellyFishs[i].isHut)
+                    moveObj(jellyFishs[i]);
+                else{
+                    jellyFishs[i].y -= 1;
+                    if(jellyFishs[i].y < 0){
+                        jellyFishs[i] = {};
+                        jellyFishs.splice(i,1);
+                        i--;
+                    }
+                }
+        }
+        
+        for (var i = 0; i < enemies.length; i++) {
+            if(enemies[i].eatFish.status){
+                UpdateSpeedAnimation(enemies[i]);
+                if(enemies[i].eatFish.time + 1000 < new Date().getTime()){
+                    enemies[i].eatFish.status = false;
+                    enemies[i].eatFish.time = 0;
+                    enemies[i].frameAnimation = 0;
+                }
+            }
+            moveObj(enemies[i]);     
+        }
+    }catch(e){
+        console.log("error: ",e);
     }
 }
 
 
 function gameloop() {
-    if (users.length > 0) {
-        users.sort( function(a, b) { return b.kill - a.kill; });
+        try{
+        if (users.length > 0) {
+            users.sort( function(a, b) { return b.kill - a.kill; });
 
-        var topUsers = [];
+            var topUsers = [];
 
-        for (var i = 0; i < users.length; i++) {
-            users[i].rank = i + 1;
-        }
-        for (var i = 0; i < Math.min(10, users.length); i++) {
-                topUsers.push({
-                    id: users[i].id,
-                    name: users[i].name,
-                    kill: users[i].kill
-                });
-        }
-        if (isNaN(leaderboard) || leaderboard.length !== topUsers.length) {
-            leaderboard = topUsers;
-            leaderboardChanged = true;
-        }
-        else {
-            for (i = 0; i < leaderboard.length; i++) {
-                if (leaderboard[i].id !== topUsers[i].id) {
-                    leaderboard = topUsers;
-                    leaderboardChanged = true;
-                    break;
+            for (var i = 0; i < users.length; i++) {
+                users[i].rank = i + 1;
+            }
+            for (var i = 0; i < Math.min(10, users.length); i++) {
+                    topUsers.push({
+                        id: users[i].id,
+                        name: users[i].name,
+                        kill: users[i].kill
+                    });
+            }
+            if (isNaN(leaderboard) || leaderboard.length !== topUsers.length) {
+                leaderboard = topUsers;
+                leaderboardChanged = true;
+            }
+            else {
+                for (i = 0; i < leaderboard.length; i++) {
+                    if (leaderboard[i].id !== topUsers[i].id) {
+                        leaderboard = topUsers;
+                        leaderboardChanged = true;
+                        break;
+                    }
                 }
             }
+            
         }
-        
+        balanceMass();
+        UpdateJellyCollion();
+    }catch(e){
+        console.log("error: ", e);
     }
-    balanceMass();
-    UpdateJellyCollion();
 }
 
 function sendUpdates() {
@@ -1650,9 +1645,11 @@ setInterval(function(){
 
 setInterval(function(){
     for (var i = 0; i < users.length; i++) {
-        if(users[i].light.radius - 20 > c.light.defaultRadiusLight)
-            users[i].light.radius -= 20;
-        else users[i].light.radius = c.light.defaultRadiusLight;
+        if(users[i].light){
+            if(users[i].light.radius - 20 > c.light.defaultRadiusLight)
+                users[i].light.radius -= 20;
+            else users[i].light.radius = c.light.defaultRadiusLight;
+        }
     }
 },3000);
 
