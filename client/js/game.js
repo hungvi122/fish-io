@@ -72,6 +72,14 @@ var imageShark = document.getElementById("shark");
 var imageJellyFish = document.getElementById("jellyFish");
 var imageEat = document.getElementById("eating");
 
+var audioBubble = document.getElementById("audio_bubble");
+var audioBoom = document.getElementById("audio_boom");
+    audioBoom.volume = 0.6;
+var audioGrow = document.getElementById("audio_grow");
+var audioGameover = document.getElementById("audio_gameover");
+var audioMain = document.getElementById("audio_main");
+    audioMain.volume = 0.4;
+var audioShark = document.getElementById("audio_shark");
 $( "#speed" ).click(function() {
     socket.emit('mouseLeft');
     window.canvas.reenviar = false;
@@ -191,6 +199,13 @@ window.chat = new ChatClient();
         enemies = visibleEnemy;
         bots = botVisible;
         lights = lightList;
+        if(enemies.length > 0  && !global.hasEnemy){
+            audioShark.play();
+            global.hasEnemy = true;
+        }
+        if(enemies.length == 0){
+            global.hasEnemy = false;
+        }
     });
 
     // Death.
@@ -220,11 +235,11 @@ function addAirBubble(toAdd) {
         airBubbles.push({
             // Make IDs unique.
             id: ((new Date()).getTime() + '' + airBubbles.length) >>> 0,
-            x: Math.round(Math.random()*global.screenWidth),
-            y: global.screenHeight,
+            x: Math.round((Math.random()*2 -1)*global.screenWidth/2) + player.x,
+            y: global.screenHeight/2 + player.y,
             target: {
                 x : 0,
-                y : Math.round(Math.random()*global.screenHeight)
+                y : Math.round(Math.random()*global.screenHeight/2) +player.y
             },
             level: Math.round(Math.random()*(global.airBubble.typeMax - 1))
         });
@@ -329,7 +344,10 @@ function drawBoom(obj) {
                    obj.y - player.y + global.screenHeight / 2,
                    40, 20);
         //drawSprite(imageBoom, sprite.begin, sprite.column, sprite.right, sprite.width, sprite.height,obj.frameAnimation, obj, player);
-    }else graph.drawImage(imageBlasting,obj.x - player.x + global.screenWidth / 2 - imageBlasting.width/2,obj.y - player.y + global.screenHeight / 2 - imageBlasting.height/2);
+    }else {
+        graph.drawImage(imageBlasting,obj.x - player.x + global.screenWidth / 2 - imageBlasting.width/2,obj.y - player.y + global.screenHeight / 2 - imageBlasting.height/2);
+        audioBoom.play();
+    }
 }
 
 function drawItemBoom(itemBoom) {
@@ -445,8 +463,10 @@ function drawPlayersNew(userCurrent) {
         graph.fillStyle = global.yellow;
         var massPercent = Math.min(100,(userCurrent.massTotal - userCurrent.levelUp.minMass )/ userCurrent.levelUp.targetMass* 100);
         graph.fillRect(circle.x + (- 100)/2,circle.y + currentSprite.height/2 + 10,massPercent,10);
-        if(userCurrent.levelUp.status)
+        if(userCurrent.levelUp.status){
+            audioGrow.play();
             graph.drawImage(imageEat,userCurrent.levelUp.level * 103 ,0,103, 100,circle.x, circle.y - 150,103,100);
+        }
     
     }
     graph.stroke();
@@ -634,8 +654,8 @@ function updateBubble(){
     }
 
     for (var i = 0; i < airBubbles.length; i++) {
-            airBubbles[i].y -=3;
-            graph.drawImage(imageAirBubble[airBubbles[i].level], airBubbles[i].x, airBubbles[i].y);
+            airBubbles[i].y -=7;
+            graph.drawImage(imageAirBubble[airBubbles[i].level], airBubbles[i].x - start.x,airBubbles[i].y - start.y);
             if(airBubbles[i].target.y > airBubbles[i].y){
                 airBubbles[i] = {};
                 airBubbles.splice(i,1);
@@ -657,6 +677,9 @@ Game.prototype.handleGraphics = function() {
         graph.fillStyle = '#FFFFFF';
         graph.font = 'bold 30px sans-serif';
         graph.fillText('GAME OVER!', global.screenWidth / 2, global.screenHeight / 2);
+        audioGameover.play();
+        audioBubble.pause();
+        setTimeout(function(){audioMain.play();},2000);
         document.getElementById('shadowCanvas').style.display = "none";
         document.getElementById('radar').style.display = "none";
         $('#gameAreaWrapper').fadeOut(2000);
@@ -714,6 +737,8 @@ Game.prototype.handleGraphics = function() {
             graph.fillStyle = '#FFFFFF';
             graph.font = 'bold 30px sans-serif';
             graph.fillText('Game Over!', global.screenWidth / 2, global.screenHeight / 2);
+            
+
         }
     } else {
         document.getElementById('shadowCanvas').style.display = "none";
@@ -729,17 +754,7 @@ Game.prototype.handleGraphics = function() {
         graph.textAlign = 'center';
         graph.fillStyle = '#FFFFFF';
         graph.font = 'bold 30px sans-serif';
-        if (global.kicked) {
-            if (reason !== '') {
-                graph.fillText('You were kicked for:', global.screenWidth / 2, global.screenHeight / 2 - 20);
-                graph.fillText(reason, global.screenWidth / 2, global.screenHeight / 2 + 20);
-            }
-            else {
-                graph.fillText('You were kicked!', global.screenWidth / 2, global.screenHeight / 2);
-            }
-        }
-        else {
-              graph.fillText('Disconnected!', global.screenWidth / 2, global.screenHeight / 2);
-        }
+        
+        graph.fillText('Disconnected!', global.screenWidth / 2, global.screenHeight / 2);
     }
 }
