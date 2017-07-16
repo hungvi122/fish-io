@@ -74,7 +74,7 @@
     "speedAnimation": 8,
     "timeWait": 5000,
     "timeLevelUp": 2000,
-    "speedPlayer": 6.5,
+    "speedPlayer": 9.5,
     "typeObj": {
         "FOOD" : 0,
         "MASS" : 1,
@@ -85,7 +85,7 @@
         "AIBOT": 6,
         "LIGHT":7
     },
-    "numberBot": 15,
+    "numberBot": 6,
     "BOT":{
         "DANGER": 0,
         "WARN": 1,

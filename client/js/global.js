@@ -85,5 +85,6 @@ var global = {
     levelUp:{
         x: -30,
         y: 60,
-    }
+    },
+    hasEnemy: false
 };

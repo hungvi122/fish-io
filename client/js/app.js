@@ -10,21 +10,6 @@ var localRoom;
 
 var game = new Game();
 
-function getServer(){
-    socketServer = io();
-
-    socketServer.on('joinRoom', function(room){
-        console.log("Room: ", room);
-        localRoom = room;
-        startGame('player');
-    })
-
-    socketServer.on('disconnect', function () {
-        socketServer.close();
-    });
-    
-}
-
 function startGame(type) {
     playerName = playerNameInput.value.replace(/(<([^>]+)>)/ig, '');
     global.playerType = type;
@@ -36,7 +21,9 @@ function startGame(type) {
     document.getElementById('skill-icon').style.display = "block";
     $('#startMenuWrapper').fadeOut(2000);
     $('#score').fadeIn(2000);
-    
+
+    audioMain.pause();
+    setTimeout(function(){audioBubble.play();},2000);
     if (!socket) {
         // socket = io({query:"type=" + type});
         socket = io({query:"type=" + type});
@@ -94,6 +81,8 @@ $(document).ready(function(){
     $( "#startMenu" ).show();
     $( "#inputText" ).fadeIn(2000);
     $( "#shareApp" ).fadeIn(4000);
+    audioMain.play();
+    
     appRule();
     var btn = document.getElementById('startButton'),
         nickErrorText = document.querySelector('#startMenu .input-error');
@@ -117,7 +106,6 @@ $(document).ready(function(){
             if (validNick()) {
                 nickErrorText.style.opacity = 0;
                 startGame('player');
-                // getServer();
             } else {
                 nickErrorText.style.opacity = 1;
             }
@@ -151,7 +139,7 @@ function animloop(){
     global.animLoopHandle = window.requestAnimFrame(animloop);
     gameLoop();
     d2 = new Date().getTime();
-    console.log(d2 - d1);
+    // console.log(d2 - d1);
     d1 = d2;
 }
 
